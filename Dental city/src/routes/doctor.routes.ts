@@ -25,7 +25,7 @@ doctorRoutes.post(['/Doctor/Login', '/doctor/login'], async (req: Request, res: 
   const parsed = DoctorLoginSchema.safeParse(req.body);
 
   if (!parsed.success) {
-    const errorMsgs = parsed.error.errors.map(e => e.message);
+    const errorMsgs = parsed.error.issues.map((e: { message: string }) => e.message);
     return res.status(400).render('doctor/login', {
       title: 'تسجيل دخول الكادر الطبي - دنتل سيتي',
       returnUrl: (req.query.returnUrl as string) || '/Doctor/Dashboard',
@@ -107,7 +107,7 @@ doctorRoutes.post(['/Doctor/Dashboard', '/doctor/dashboard'], requireDoctorAuth,
     case 'ChangePassword': {
       const parsed = ChangePasswordSchema.safeParse(req.body);
       if (!parsed.success) {
-        const msg = parsed.error.errors[0]?.message || 'بيانات كلمة المرور غير صالحة';
+        const msg = parsed.error.issues[0]?.message || 'بيانات كلمة المرور غير صالحة';
         return res.json({ success: false, message: msg });
       }
 
@@ -125,7 +125,7 @@ doctorRoutes.post(['/Doctor/Dashboard', '/doctor/dashboard'], requireDoctorAuth,
       try {
         const parsed = DoctorFormSchema.safeParse(req.body);
         if (!parsed.success) {
-          const msg = parsed.error.errors[0]?.message || 'بيانات الطبيب غير صالحة';
+          const msg = parsed.error.issues[0]?.message || 'بيانات الطبيب غير صالحة';
           if (isAjax) return res.json({ success: false, message: msg });
           req.session.flashMessage = { type: 'danger', text: msg };
           return res.redirect('/Doctor/Dashboard');
@@ -170,7 +170,7 @@ doctorRoutes.post(['/Doctor/Dashboard', '/doctor/dashboard'], requireDoctorAuth,
         });
 
         if (!parsed.success) {
-          const msg = parsed.error.errors[0]?.message || 'بيانات الجدول غير صالحة';
+          const msg = parsed.error.issues[0]?.message || 'بيانات الجدول غير صالحة';
           if (isAjax) return res.json({ success: false, message: msg });
           req.session.flashMessage = { type: 'danger', text: msg };
           return res.redirect('/Doctor/Dashboard');

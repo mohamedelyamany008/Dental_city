@@ -72,8 +72,9 @@ appointmentRoutes.post(['/Appointments/Book', '/appointments/book'], async (req:
     const emergencyPhone = AppointmentService.getEmergencyPhone();
 
     const formattedErrors: Record<string, string> = {};
-    parsed.error.errors.forEach(err => {
-      const field = err.path[0] as string;
+    const issues = parsed.error.issues;
+    issues.forEach((err: { path?: readonly (string | number | symbol)[]; message: string }) => {
+      const field = err.path && err.path[0] ? String(err.path[0]) : '';
       if (field) formattedErrors[field] = err.message;
     });
 

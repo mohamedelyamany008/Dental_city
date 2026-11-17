@@ -25,6 +25,11 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(cookieParser());
 
+// Trust proxy for secure cookies in serverless/cloud environments (e.g. Vercel)
+if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1);
+}
+
 // Session setup
 app.use(
   session({
@@ -33,6 +38,7 @@ app.use(
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
+      secure: process.env.NODE_ENV === 'production' && !process.env.DISABLE_SECURE_COOKIE,
       maxAge: 8 * 60 * 60 * 1000 // 8 hours default
     }
   })
@@ -41,19 +47,34 @@ app.use(
 // Inject common locals (user session, flash messages)
 app.use(injectLocals);
 
-// Static assets
-const publicPath = path.join(__dirname, '..', 'public');
-app.use(express.static(publicPath));
+// Static assets resolution (resilient across local and Vercel environments)
+const possiblePublicPaths = [
+  path.join(__dirname, '..', 'public'),
+  path.join(__dirname, 'public'),
+  path.join(process.cwd(), 'Dental city', 'public'),
+  path.join(process.cwd(), 'public')
+];
+const resolvedPublicPath = possiblePublicPaths.find(p => fs.existsSync(p)) || path.join(__dirname, '..', 'public');
+app.use(express.static(resolvedPublicPath));
 
 // View engine setup (EJS with layouts)
 app.use(expressLayouts);
 app.set('layout', 'layouts/main');
 app.set('view engine', 'ejs');
 
-const viewsPath = fs.existsSync(path.join(__dirname, 'views'))
-  ? path.join(__dirname, 'views')
-  : path.join(__dirname, '..', 'src', 'views');
-app.set('views', viewsPath);
+// Resilient views path resolution (works when invoked from root, subfolder, or Vercel serverless)
+const possibleViewPaths = [
+  path.join(__dirname, 'views'),
+  path.join(__dirname, '..', 'src', 'views'),
+  path.join(__dirname, '..', 'dist', 'views'),
+  path.join(process.cwd(), 'Dental city', 'src', 'views'),
+  path.join(process.cwd(), 'Dental city', 'dist', 'views'),
+  path.join(process.cwd(), 'dist', 'views'),
+  path.join(process.cwd(), 'src', 'views'),
+  path.join(process.cwd(), 'views')
+];
+const resolvedViewsPath = possibleViewPaths.find(p => fs.existsSync(p)) || path.join(__dirname, 'views');
+app.set('views', resolvedViewsPath);
 
 // Mount application routes
 app.use('/', indexRoutes);
@@ -78,13 +99,16 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`====================================================`);
-  console.log(`🏥 Dental City Web Application (Node.js + TypeScript)`);
-  console.log(`🚀 Server running on: http://localhost:${PORT}`);
-  console.log(`📅 Appointments: http://localhost:${PORT}/Appointments/Book`);
-  console.log(`🔐 Doctor Portal: http://localhost:${PORT}/Doctor/Login`);
-  console.log(`====================================================`);
-});
+// Only bind to port if running locally (not in Vercel serverless function environment)
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`====================================================`);
+    console.log(`🏥 Dental City Web Application (Node.js + TypeScript)`);
+    console.log(`🚀 Server running on: http://localhost:${PORT}`);
+    console.log(`📅 Appointments: http://localhost:${PORT}/Appointments/Book`);
+    console.log(`🔐 Doctor Portal: http://localhost:${PORT}/Doctor/Login`);
+    console.log(`====================================================`);
+  });
+}
 
 export default app;

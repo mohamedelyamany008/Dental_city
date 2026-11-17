@@ -21,14 +21,16 @@ export const DoctorFormSchema = z.object({
 });
 
 export const BookingFormSchema = z.object({
-  doctorId: z.coerce.number({ invalid_type_error: 'يرجى اختيار الطبيب المعالج' }).min(1, 'يرجى اختيار الطبيب المعالج من القائمة'),
+  doctorId: z.coerce.number().min(1, 'يرجى اختيار الطبيب المعالج من القائمة'),
   selectedService: z.string().min(2, 'يرجى اختيار الخدمة أو التخصص'),
   appointmentDate: z.string().min(5, 'يرجى اختيار تاريخ الموعد'),
   appointmentTime: z.string().min(3, 'يرجى اختيار وقت الموعد'),
   patientName: z.string().min(3, 'يرجى إدخال اسم المريض ثلاثياً'),
   patientPhone: z.string().regex(/^(01)[0-25][0-9]{8}$/, 'يرجى إدخال رقم هاتف محمول مصري صحيح (11 رقم)'),
   birthDate: z.string().min(4, 'يرجى إدخال تاريخ ميلاد المريض'),
-  gender: z.enum(['ذكر', 'أنثى'], { errorMap: () => ({ message: 'يرجى تحديد النوع (ذكر/أنثى)' }) }),
+  gender: z.string().refine((val): val is 'ذكر' | 'أنثى' => val === 'ذكر' || val === 'أنثى', {
+    message: 'يرجى تحديد النوع (ذكر/أنثى)'
+  }),
   patientNotes: z.string().optional().default(''),
   agreeTerms: z.preprocess((val) => val === true || val === 'true' || val === 'on', z.boolean()).refine(val => val === true, {
     message: 'يجب الموافقة على شروط وسياسة الحجز'
@@ -46,8 +48,7 @@ export const ChangePasswordSchema = z.object({
   newPassword: z.string().min(6, 'كلمة المرور الجديدة يجب ألا تقل عن 6 خانات'),
   confirmPassword: z.string().min(6, 'يرجى تأكيد كلمة المرور الجديدة')
 }).refine(data => data.newPassword === data.confirmPassword, {
-  message: 'كلمة المرور الجديدة وتأكيدها غير متطابقين',
-  path: ['confirmPassword']
+  message: 'كلمة المرور الجديدة وتأكيدها غير متطابقين'
 });
 
 export const ScheduleUpdateSchema = z.object({
