@@ -1,8 +1,9 @@
 # syntax = docker/dockerfile:1
 
 # Multi-stage build for Dental City Node.js application on Fly.io
-ARG NODE_VERSION=20.18.1
-FROM node:${NODE_VERSION}-slim as base
+# Using Node.js 22 LTS (Active LTS with built-in native WebSocket support)
+ARG NODE_VERSION=22-slim
+FROM node:${NODE_VERSION} as base
 
 LABEL fly_launch_runtime="Node.js"
 
