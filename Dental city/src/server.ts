@@ -32,8 +32,8 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
-// Configuration: Port & Host (Fly.io requires binding to 0.0.0.0)
-const PORT = process.env.PORT || 5083;
+// Configuration: Port & Host (MonsterASP.NET uses HTTP_PLATFORM_PORT, Fly.io uses PORT)
+const PORT = process.env.PORT || process.env.HTTP_PLATFORM_PORT || 5083;
 const isNamedPipe = typeof PORT === 'string' && PORT.startsWith('\\\\.\\pipe\\');
 const portNumber = Number(PORT) || 5083;
 const HOST = '0.0.0.0';
@@ -43,10 +43,11 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(cookieParser());
 
-// Trust proxy for Fly.io, Vercel, and reverse proxies (enables secure cookies and client IP forwarding)
+// Trust proxy for MonsterASP.NET, Fly.io, Vercel, and IIS reverse proxies
 const isCloudOrProd = Boolean(
   process.env.FLY_APP_NAME ||
   process.env.FLY_ALLOC_ID ||
+  process.env.HTTP_PLATFORM_PORT ||
   process.env.VERCEL ||
   process.env.NODE_ENV === 'production'
 );

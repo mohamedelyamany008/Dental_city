@@ -10,6 +10,7 @@
   "scripts": {
     "postinstall": "node scripts/postinstall.js",
     "build": "node scripts/build.js",
+    "package:monsterasp": "node scripts/package-monsterasp.js",
     "start": "node server.js",
     "dev": "npm run dev --prefix \"Dental city\""
   }

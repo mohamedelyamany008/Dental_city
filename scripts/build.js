@@ -29,14 +29,23 @@ try {
   process.exit(1);
 }
 
-// 2. Synchronize views and assets to root for multi-environment compatibility
+// 2. Synchronize compiled code and assets to root for multi-environment compatibility (MonsterASP, IIS, Fly.io, Vercel)
 try {
+  const srcDist = path.join(innerDir, 'dist');
+  const rootDist = path.join(rootDir, 'dist');
   const srcViews = path.join(innerDir, 'src', 'views');
   const rootDistViews = path.join(rootDir, 'dist', 'views');
   const rootViews = path.join(rootDir, 'views');
   const srcPublic = path.join(innerDir, 'public');
   const rootPublic = path.join(rootDir, 'public');
 
+  // Copy full compiled dist directory to root dist
+  if (fs.existsSync(srcDist)) {
+    fs.mkdirSync(rootDist, { recursive: true });
+    fs.cpSync(srcDist, rootDist, { recursive: true, force: true });
+  }
+
+  // Ensure root dist/views and root views exist
   if (fs.existsSync(srcViews)) {
     fs.mkdirSync(rootDistViews, { recursive: true });
     fs.cpSync(srcViews, rootDistViews, { recursive: true, force: true });
@@ -44,12 +53,19 @@ try {
     fs.cpSync(srcViews, rootViews, { recursive: true, force: true });
   }
 
+  // Ensure root public exists
   if (fs.existsSync(srcPublic) && !fs.existsSync(rootPublic)) {
     fs.mkdirSync(rootPublic, { recursive: true });
     fs.cpSync(srcPublic, rootPublic, { recursive: true, force: true });
   }
 
-  console.log('✓ Successfully prepared Dental City assets.');
+  // Ensure logs directory exists for MonsterASP.NET / IIS stdout logging
+  const logsDir = path.join(rootDir, 'logs');
+  if (!fs.existsSync(logsDir)) {
+    fs.mkdirSync(logsDir, { recursive: true });
+  }
+
+  console.log('✓ Successfully prepared Dental City assets and root dist.');
 } catch (err) {
   console.warn('Notice while syncing root assets:', err.message);
 }

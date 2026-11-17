@@ -1,5 +1,5 @@
 # ملف الكود البرمجي الشامل لمشروع مركز دنتل سيتي (Dental City)
-> **تاريخ التجميع:** ١٧‏/١١‏/٢٠٢٦، ٥:٠١:٢٦ م
+> **تاريخ التجميع:** ١٨‏/١١‏/٢٠٢٦، ١٢:٠٤:٣٨ ص
 > **البيئة:** Node.js (TypeScript) + Express + EJS + Supabase (PostgreSQL)
 > **ملاحظة:** تم تجميع كل ملفات المشروع البرمجية في هذا المستند للعرض والمراجعة والنسخ بسهولة دون المساس أو التعديل بأي من الملفات الأصلية.
 
@@ -60,8 +60,8 @@
 ### Server Entrypoint (server.ts)
 
 - **المسار:** `Dental city/src/server.ts`
-- **عدد الأسطر:** 230 سطر
-- **الحجم:** 9.0 KB
+- **عدد الأسطر:** 231 سطر
+- **الحجم:** 9.1 KB
 
 ````typescript
 import express, { Request, Response, NextFunction } from 'express';
@@ -98,8 +98,8 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
-// Configuration: Port & Host (Fly.io requires binding to 0.0.0.0)
-const PORT = process.env.PORT || 5083;
+// Configuration: Port & Host (MonsterASP.NET uses HTTP_PLATFORM_PORT, Fly.io uses PORT)
+const PORT = process.env.PORT || process.env.HTTP_PLATFORM_PORT || 5083;
 const isNamedPipe = typeof PORT === 'string' && PORT.startsWith('\\\\.\\pipe\\');
 const portNumber = Number(PORT) || 5083;
 const HOST = '0.0.0.0';
@@ -109,10 +109,11 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(cookieParser());
 
-// Trust proxy for Fly.io, Vercel, and reverse proxies (enables secure cookies and client IP forwarding)
+// Trust proxy for MonsterASP.NET, Fly.io, Vercel, and IIS reverse proxies
 const isCloudOrProd = Boolean(
   process.env.FLY_APP_NAME ||
   process.env.FLY_ALLOC_ID ||
+  process.env.HTTP_PLATFORM_PORT ||
   process.env.VERCEL ||
   process.env.NODE_ENV === 'production'
 );
@@ -5433,8 +5434,8 @@ body {
 ### Root package.json
 
 - **المسار:** `package.json`
-- **عدد الأسطر:** 17 سطر
-- **الحجم:** 0.3 KB
+- **عدد الأسطر:** 18 سطر
+- **الحجم:** 0.4 KB
 
 ````json
 {
@@ -5449,6 +5450,7 @@ body {
   "scripts": {
     "postinstall": "node scripts/postinstall.js",
     "build": "node scripts/build.js",
+    "package:monsterasp": "node scripts/package-monsterasp.js",
     "start": "node server.js",
     "dev": "npm run dev --prefix \"Dental city\""
   }
@@ -5460,19 +5462,34 @@ body {
 ### Root Server Entrypoint (server.js)
 
 - **المسار:** `server.js`
-- **عدد الأسطر:** 10 سطر
-- **الحجم:** 0.2 KB
+- **عدد الأسطر:** 25 سطر
+- **الحجم:** 0.7 KB
 
 ````javascript
 /**
  * Dental City Clinic Management & Booking System
- * Root Server Entrypoint for Hosting Environments (IISNode, Passenger, cPanel, Plesk, PaaS)
+ * Root Server Entrypoint for Hosting Environments (MonsterASP.NET, IIS, Fly.io, Vercel)
  */
 
-import app from './Dental city/dist/server.js';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath, pathToFileURL } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Candidates for compiled server file (supports nested /Dental city/dist and flat /dist)
+const candidates = [
+  path.join(__dirname, 'Dental city', 'dist', 'server.js'),
+  path.join(__dirname, 'dist', 'server.js')
+];
+
+const targetPath = candidates.find(p => fs.existsSync(p)) || candidates[0];
+
+const moduleUrl = pathToFileURL(targetPath).href;
+const { default: app } = await import(moduleUrl);
 
 export default app;
-
 ````
 
 ---
@@ -5480,50 +5497,40 @@ export default app;
 ### Root IIS / AppPool Configuration (web.config)
 
 - **المسار:** `web.config`
-- **عدد الأسطر:** 67 سطر
-- **الحجم:** 2.2 KB
+- **عدد الأسطر:** 42 سطر
+- **الحجم:** 1.5 KB
 
 ````xml
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   Dental City Clinic Management & Booking System
-  IIS / IISNode / Windows Hosting Web Configuration
+  MonsterASP.NET / IIS Web Configuration
+  Uses HttpPlatformHandler (MonsterASP.NET official standard for Node.js)
 -->
 <configuration>
   <system.webServer>
-    <!-- Allow Express custom error pages (PassThrough) -->
+    <!-- Prevent IIS from overriding Express custom Arabic error pages -->
     <httpErrors existingResponse="PassThrough" />
 
-    <!-- Register iisnode handler for Node.js execution -->
+    <!-- Register httpPlatformHandler to route traffic to Node.js -->
     <handlers>
-      <add name="iisnode" path="server.js" verb="*" modules="iisnode" />
+      <add name="httpPlatformHandler" path="*" verb="*" modules="httpPlatformHandler" resourceType="Unspecified" />
     </handlers>
 
-    <!-- URL Rewrite rules for routing traffic through server.js -->
-    <rewrite>
-      <rules>
-        <!-- Do not interfere with requests for node-inspector debugging -->
-        <rule name="NodeInspector" patternSyntax="ECMAScript" stopProcessing="true">
-          <match url="^server.js\/debug[\/]?" />
-        </rule>
+    <!-- Configure httpPlatform process execution -->
+    <httpPlatform processPath="node" 
+                  arguments=".\server.js" 
+                  startupTimeLimit="120" 
+                  startupRetryCount="3"
+                  stdoutLogEnabled="true" 
+                  stdoutLogFile=".\logs\stdout">
+      <environmentVariables>
+        <environmentVariable name="PORT" value="%HTTP_PLATFORM_PORT%" />
+        <environmentVariable name="NODE_ENV" value="production" />
+      </environmentVariables>
+    </httpPlatform>
 
-        <!-- Static content: Serve assets directly from /public if file exists -->
-        <rule name="StaticContent" stopProcessing="true">
-          <match url="([\S]+[.](html|htm|svg|js|css|png|gif|jpg|jpeg|ico|woff|woff2|ttf|eot|webp))" />
-          <action type="Rewrite" url="public/{R:1}" />
-        </rule>
-
-        <!-- All other URLs are mapped to the Node.js application entry point -->
-        <rule name="DynamicContent">
-          <conditions>
-            <add input="{REQUEST_FILENAME}" matchType="IsFile" negate="True" />
-          </conditions>
-          <action type="Rewrite" url="server.js" />
-        </rule>
-      </rules>
-    </rewrite>
-
-    <!-- Exclude node_modules, src, and environment files from direct HTTP access -->
+    <!-- Security: Exclude sensitive source and env files from public web access -->
     <security>
       <requestFiltering>
         <hiddenSegments>
@@ -5533,23 +5540,8 @@ export default app;
         </hiddenSegments>
       </requestFiltering>
     </security>
-
-    <!-- iisnode options for maximum AppPool stability and crash prevention -->
-    <iisnode
-      maxConcurrentRequestsPerProcess="1024"
-      maxNamedPipeConnectionRetry="100"
-      namedPipeConnectionRetryDelay="250"
-      initialRequestTimeout="60000"
-      requestTimeout="120000"
-      logDirectory="iisnode"
-      debuggingEnabled="false"
-      devErrorsEnabled="false"
-      loggingEnabled="true"
-      watchedFiles="web.config;*.js"
-    />
   </system.webServer>
 </configuration>
-
 ````
 
 ---
@@ -5597,8 +5589,8 @@ export default app;
 ### Root Vercel Build Pipeline (scripts/build.js)
 
 - **المسار:** `scripts/build.js`
-- **عدد الأسطر:** 56 سطر
-- **الحجم:** 1.9 KB
+- **عدد الأسطر:** 72 سطر
+- **الحجم:** 2.6 KB
 
 ````javascript
 import { execSync } from 'child_process';
@@ -5632,14 +5624,23 @@ try {
   process.exit(1);
 }
 
-// 2. Synchronize views and assets to root for multi-environment compatibility
+// 2. Synchronize compiled code and assets to root for multi-environment compatibility (MonsterASP, IIS, Fly.io, Vercel)
 try {
+  const srcDist = path.join(innerDir, 'dist');
+  const rootDist = path.join(rootDir, 'dist');
   const srcViews = path.join(innerDir, 'src', 'views');
   const rootDistViews = path.join(rootDir, 'dist', 'views');
   const rootViews = path.join(rootDir, 'views');
   const srcPublic = path.join(innerDir, 'public');
   const rootPublic = path.join(rootDir, 'public');
 
+  // Copy full compiled dist directory to root dist
+  if (fs.existsSync(srcDist)) {
+    fs.mkdirSync(rootDist, { recursive: true });
+    fs.cpSync(srcDist, rootDist, { recursive: true, force: true });
+  }
+
+  // Ensure root dist/views and root views exist
   if (fs.existsSync(srcViews)) {
     fs.mkdirSync(rootDistViews, { recursive: true });
     fs.cpSync(srcViews, rootDistViews, { recursive: true, force: true });
@@ -5647,12 +5648,19 @@ try {
     fs.cpSync(srcViews, rootViews, { recursive: true, force: true });
   }
 
+  // Ensure root public exists
   if (fs.existsSync(srcPublic) && !fs.existsSync(rootPublic)) {
     fs.mkdirSync(rootPublic, { recursive: true });
     fs.cpSync(srcPublic, rootPublic, { recursive: true, force: true });
   }
 
-  console.log('✓ Successfully prepared Dental City assets.');
+  // Ensure logs directory exists for MonsterASP.NET / IIS stdout logging
+  const logsDir = path.join(rootDir, 'logs');
+  if (!fs.existsSync(logsDir)) {
+    fs.mkdirSync(logsDir, { recursive: true });
+  }
+
+  console.log('✓ Successfully prepared Dental City assets and root dist.');
 } catch (err) {
   console.warn('Notice while syncing root assets:', err.message);
 }
@@ -5791,38 +5799,32 @@ EMERGENCY_PHONE=01551388988
 ### Subfolder IIS Configuration (web.config)
 
 - **المسار:** `Dental city/web.config`
-- **عدد الأسطر:** 53 سطر
-- **الحجم:** 1.6 KB
+- **عدد الأسطر:** 34 سطر
+- **الحجم:** 1.1 KB
 
 ````xml
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   Dental City Clinic Management & Booking System
-  Subfolder Web Configuration
+  Subfolder MonsterASP.NET / IIS Configuration
 -->
 <configuration>
   <system.webServer>
     <httpErrors existingResponse="PassThrough" />
     <handlers>
-      <add name="iisnode" path="dist/server.js" verb="*" modules="iisnode" />
+      <add name="httpPlatformHandler" path="*" verb="*" modules="httpPlatformHandler" resourceType="Unspecified" />
     </handlers>
-    <rewrite>
-      <rules>
-        <rule name="NodeInspector" patternSyntax="ECMAScript" stopProcessing="true">
-          <match url="^dist/server.js\/debug[\/]?" />
-        </rule>
-        <rule name="StaticContent" stopProcessing="true">
-          <match url="([\S]+[.](html|htm|svg|js|css|png|gif|jpg|jpeg|ico|woff|woff2|ttf|eot|webp))" />
-          <action type="Rewrite" url="public/{R:1}" />
-        </rule>
-        <rule name="DynamicContent">
-          <conditions>
-            <add input="{REQUEST_FILENAME}" matchType="IsFile" negate="True" />
-          </conditions>
-          <action type="Rewrite" url="dist/server.js" />
-        </rule>
-      </rules>
-    </rewrite>
+    <httpPlatform processPath="node" 
+                  arguments=".\dist\server.js" 
+                  startupTimeLimit="120" 
+                  startupRetryCount="3"
+                  stdoutLogEnabled="true" 
+                  stdoutLogFile=".\logs\stdout">
+      <environmentVariables>
+        <environmentVariable name="PORT" value="%HTTP_PLATFORM_PORT%" />
+        <environmentVariable name="NODE_ENV" value="production" />
+      </environmentVariables>
+    </httpPlatform>
     <security>
       <requestFiltering>
         <hiddenSegments>
@@ -5832,21 +5834,8 @@ EMERGENCY_PHONE=01551388988
         </hiddenSegments>
       </requestFiltering>
     </security>
-    <iisnode
-      maxConcurrentRequestsPerProcess="1024"
-      maxNamedPipeConnectionRetry="100"
-      namedPipeConnectionRetryDelay="250"
-      initialRequestTimeout="60000"
-      requestTimeout="120000"
-      logDirectory="iisnode"
-      debuggingEnabled="false"
-      devErrorsEnabled="false"
-      loggingEnabled="true"
-      watchedFiles="web.config;*.js"
-    />
   </system.webServer>
 </configuration>
-
 ````
 
 ---
