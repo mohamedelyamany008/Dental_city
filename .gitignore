@@ -11,6 +11,7 @@ bin/
 obj/
 views/
 publish-monsterasp/
+publish-monsterasp.zip
 logs/*.log
 
 # Environment and sensitive files

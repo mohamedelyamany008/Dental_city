@@ -8,6 +8,7 @@ const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
 const innerDir = path.join(rootDir, 'Dental city');
 const outDir = path.join(rootDir, 'publish-monsterasp');
+const zipPath = path.join(rootDir, 'publish-monsterasp.zip');
 
 console.log('📦 Preparing MonsterASP.NET Deployment Package...');
 
@@ -47,12 +48,25 @@ if (fs.existsSync(innerModules)) {
   console.log('✓ Copied: node_modules');
 }
 
+// 5. Generate ZIP archive for one-click upload & extract in MonsterASP.NET File Manager
+if (fs.existsSync(zipPath)) {
+  fs.rmSync(zipPath, { force: true });
+}
+
+try {
+  console.log('⏳ Creating publish-monsterasp.zip archive...');
+  execSync(`powershell -NoProfile -Command "Compress-Archive -Path '${outDir}\\*' -DestinationPath '${zipPath}' -Force"`, { stdio: 'inherit' });
+  console.log('✓ Created: publish-monsterasp.zip');
+} catch (e) {
+  console.warn('Notice: Could not auto-generate ZIP archive:', e.message);
+}
+
 console.log('\n============================================================');
-console.log('🎉 MonsterASP.NET Package Ready at: publish-monsterasp/');
-console.log('Instructions:');
-console.log('1. Upload everything inside "publish-monsterasp" to "/wwwroot" on MonsterASP.NET.');
-console.log('2. In MonsterASP.NET Control Panel:');
-console.log('   - Go to Websites -> site108452 -> Configuration / Scripting');
-console.log('   - Ensure Node.js is selected (or .NET CLR is set to No Managed Code)');
-console.log('3. Restart the Application Pool (Process -> Restart).');
+console.log('🎉 MonsterASP.NET Package Ready!');
+console.log('Folder: publish-monsterasp/');
+console.log('Archive: publish-monsterasp.zip');
+console.log('Deployment Methods:');
+console.log('Option A (Fastest): Upload "publish-monsterasp.zip" via MonsterASP.NET File Manager and click Extract.');
+console.log('Option B: Upload all files inside "publish-monsterasp" via FTP directly into "/wwwroot".');
+console.log('Option C: Git Push to your repository.');
 console.log('============================================================\n');

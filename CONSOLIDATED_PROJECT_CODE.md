@@ -1,5 +1,5 @@
 # ملف الكود البرمجي الشامل لمشروع مركز دينتال سيتي (Dental City)
-> **تاريخ التجميع:** ١٨‏/١١‏/٢٠٢٦، ١٢:٠٩:٥١ ص
+> **تاريخ التجميع:** ١٨‏/١١‏/٢٠٢٦، ١٢:٤٠:٥١ ص
 > **البيئة:** Node.js (TypeScript) + Express + EJS + Supabase (PostgreSQL)
 > **ملاحظة:** تم تجميع كل ملفات المشروع البرمجية في هذا المستند للعرض والمراجعة والنسخ بسهولة دون المساس أو التعديل بأي من الملفات الأصلية.
 
@@ -60,8 +60,8 @@
 ### Server Entrypoint (server.ts)
 
 - **المسار:** `Dental city/src/server.ts`
-- **عدد الأسطر:** 231 سطر
-- **الحجم:** 9.1 KB
+- **عدد الأسطر:** 239 سطر
+- **الحجم:** 9.6 KB
 
 ````typescript
 import express, { Request, Response, NextFunction } from 'express';
@@ -102,7 +102,7 @@ const app = express();
 const PORT = process.env.PORT || process.env.HTTP_PLATFORM_PORT || 5083;
 const isNamedPipe = typeof PORT === 'string' && PORT.startsWith('\\\\.\\pipe\\');
 const portNumber = Number(PORT) || 5083;
-const HOST = '0.0.0.0';
+const isFly = Boolean(process.env.FLY_APP_NAME || process.env.FLY_ALLOC_ID);
 
 // Body and Cookie Parsers
 app.use(express.urlencoded({ extended: true }));
@@ -265,10 +265,18 @@ if (!process.env.VERCEL) {
         console.log(`🚀 Server running via Named Pipe: ${PORT} (IIS / AppPool Mode)`);
         console.log(`====================================================`);
       })
-    : app.listen(portNumber, HOST, () => {
+    : isFly
+    ? app.listen(portNumber, '0.0.0.0', () => {
         console.log(`====================================================`);
         console.log(`🏥 Dental City Web Application (Node.js + TypeScript)`);
-        console.log(`🚀 Server running on: http://${HOST}:${portNumber}`);
+        console.log(`🚀 Server running on Fly.io: http://0.0.0.0:${portNumber}`);
+        console.log(`💓 Health Check: http://0.0.0.0:${portNumber}/health`);
+        console.log(`====================================================`);
+      })
+    : app.listen(portNumber, () => {
+        console.log(`====================================================`);
+        console.log(`🏥 Dental City Web Application (Node.js + TypeScript)`);
+        console.log(`🚀 Server running on: http://localhost:${portNumber}`);
         console.log(`📅 Appointments: http://localhost:${portNumber}/Appointments/Book`);
         console.log(`🔐 Doctor Portal: http://localhost:${portNumber}/Doctor/Login`);
         console.log(`💓 Health Check: http://localhost:${portNumber}/health`);
@@ -5434,8 +5442,8 @@ body {
 ### Root package.json
 
 - **المسار:** `package.json`
-- **عدد الأسطر:** 18 سطر
-- **الحجم:** 0.4 KB
+- **عدد الأسطر:** 29 سطر
+- **الحجم:** 0.7 KB
 
 ````json
 {
@@ -5453,6 +5461,17 @@ body {
     "package:monsterasp": "node scripts/package-monsterasp.js",
     "start": "node server.js",
     "dev": "npm run dev --prefix \"Dental city\""
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.1",
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^16.4.7",
+    "ejs": "^3.1.10",
+    "express": "^4.21.2",
+    "express-ejs-layouts": "^2.5.1",
+    "express-session": "^1.18.1",
+    "ws": "^8.23.0",
+    "zod": "^4.6.7"
   }
 }
 ````
@@ -5462,32 +5481,84 @@ body {
 ### Root Server Entrypoint (server.js)
 
 - **المسار:** `server.js`
-- **عدد الأسطر:** 25 سطر
-- **الحجم:** 0.7 KB
+- **عدد الأسطر:** 77 سطر
+- **الحجم:** 3.4 KB
 
 ````javascript
 /**
  * Dental City Clinic Management & Booking System
- * Root Server Entrypoint for Hosting Environments (MonsterASP.NET, IIS, Fly.io, Vercel)
+ * Universal Root Server Entrypoint for Hosting Environments (MonsterASP.NET, IIS, Fly.io, Vercel)
  */
 
 import fs from 'fs';
+import http from 'http';
 import path from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Candidates for compiled server file (supports nested /Dental city/dist and flat /dist)
+// Candidate paths for compiled server file
 const candidates = [
   path.join(__dirname, 'Dental city', 'dist', 'server.js'),
   path.join(__dirname, 'dist', 'server.js')
 ];
 
-const targetPath = candidates.find(p => fs.existsSync(p)) || candidates[0];
+let app;
 
-const moduleUrl = pathToFileURL(targetPath).href;
-const { default: app } = await import(moduleUrl);
+for (const candidate of candidates) {
+  if (fs.existsSync(candidate)) {
+    try {
+      const moduleUrl = pathToFileURL(candidate).href;
+      const imported = await import(moduleUrl);
+      app = imported.default || imported;
+      if (app) break;
+    } catch (err) {
+      console.warn(`[LOADER] Candidate ${candidate} threw error: ${err.message}. Trying next candidate...`);
+    }
+  }
+}
+
+if (!app) {
+  // If compiled dist files are missing or failed to import, start a fallback HTTP server
+  // to prevent IIS / MonsterASP.NET Application Pool from crashing with fatal communication error (Event ID 5011)
+  const port = process.env.PORT || process.env.HTTP_PLATFORM_PORT || 5083;
+  const fallbackServer = http.createServer((req, res) => {
+    res.writeHead(500, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(`<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <title>تنبيه إعداد خادم مركز دينتال سيتي</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; background: #f8fafc; color: #1e293b; padding: 40px 20px; text-align: center; }
+    .card { max-width: 650px; margin: 0 auto; background: white; border-radius: 16px; padding: 36px; box-shadow: 0 10px 25px rgba(0,0,0,0.06); border: 1px solid #e2e8f0; }
+    h1 { color: #dc2626; font-size: 22px; margin-bottom: 16px; }
+    p { font-size: 15px; line-height: 1.7; color: #475569; }
+    .box { background: #f1f5f9; padding: 14px; border-radius: 8px; font-family: monospace; font-size: 13px; margin: 18px 0; text-align: left; direction: ltr; word-break: break-all; }
+    .badge { display: inline-block; padding: 6px 14px; background: #e0f2fe; color: #0369a1; border-radius: 20px; font-weight: bold; margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="badge">MonsterASP.NET Node.js Diagnostic</div>
+    <h1>تنبيه: ملفات التطبيق المترجمة غير مكتملة على الخادم</h1>
+    <p>خادم Node.js يعمل بنجاح ومربوط على منفذ IIS، ولكن لم يتم العثور على ملفات <code>dist/server.js</code> أو حزم <code>node_modules</code> المطلوبة لتشغيل النظام.</p>
+    <div class="box">
+      <b>Checked paths:</b><br/>
+      ${candidates.map(c => `- ${c} (${fs.existsSync(c) ? 'Found' : 'Not Found'})`).join('<br/>')}
+    </div>
+    <p>لحل المشكلة نهائياً، يرجى تشغيل أمر <code>npm run package:monsterasp</code> محلياً ثم رفع محتويات مجلد <strong>publish-monsterasp</strong> بالكامل إلى مجلد <strong>/wwwroot</strong> على الاستضافة.</p>
+  </div>
+</body>
+</html>`);
+  });
+
+  const portNum = Number(port) || 5083;
+  fallbackServer.listen(portNum, () => {
+    console.log(`[DIAGNOSTIC] Fallback server active on port ${portNum} to prevent AppPool crash.`);
+  });
+}
 
 export default app;
 ````
@@ -5520,9 +5591,9 @@ export default app;
     <!-- Configure httpPlatform process execution -->
     <httpPlatform processPath="node" 
                   arguments=".\server.js" 
-                  startupTimeLimit="120" 
+                  startupTimeLimit="60" 
                   startupRetryCount="3"
-                  stdoutLogEnabled="true" 
+                  stdoutLogEnabled="false" 
                   stdoutLogFile=".\logs\stdout">
       <environmentVariables>
         <environmentVariable name="PORT" value="%HTTP_PLATFORM_PORT%" />
@@ -5589,8 +5660,8 @@ export default app;
 ### Root Vercel Build Pipeline (scripts/build.js)
 
 - **المسار:** `scripts/build.js`
-- **عدد الأسطر:** 72 سطر
-- **الحجم:** 2.6 KB
+- **عدد الأسطر:** 85 سطر
+- **الحجم:** 3.1 KB
 
 ````javascript
 import { execSync } from 'child_process';
@@ -5658,6 +5729,19 @@ try {
   const logsDir = path.join(rootDir, 'logs');
   if (!fs.existsSync(logsDir)) {
     fs.mkdirSync(logsDir, { recursive: true });
+  }
+
+  // Ensure root node_modules has dependencies for root execution
+  const innerNodeModules = path.join(innerDir, 'node_modules');
+  const rootNodeModules = path.join(rootDir, 'node_modules');
+  const rootExpress = path.join(rootNodeModules, 'express');
+  if (fs.existsSync(innerNodeModules) && !fs.existsSync(rootExpress)) {
+    try {
+      fs.cpSync(innerNodeModules, rootNodeModules, { recursive: true, force: true });
+      console.log('✓ Synchronized dependencies to root node_modules.');
+    } catch (e) {
+      console.warn('Notice syncing root node_modules:', e.message);
+    }
   }
 
   console.log('✓ Successfully prepared Dental City assets and root dist.');
@@ -5816,9 +5900,9 @@ EMERGENCY_PHONE=01551388988
     </handlers>
     <httpPlatform processPath="node" 
                   arguments=".\dist\server.js" 
-                  startupTimeLimit="120" 
+                  startupTimeLimit="60" 
                   startupRetryCount="3"
-                  stdoutLogEnabled="true" 
+                  stdoutLogEnabled="false" 
                   stdoutLogFile=".\logs\stdout">
       <environmentVariables>
         <environmentVariable name="PORT" value="%HTTP_PLATFORM_PORT%" />

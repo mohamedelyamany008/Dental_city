@@ -65,6 +65,19 @@ try {
     fs.mkdirSync(logsDir, { recursive: true });
   }
 
+  // Ensure root node_modules has dependencies for root execution
+  const innerNodeModules = path.join(innerDir, 'node_modules');
+  const rootNodeModules = path.join(rootDir, 'node_modules');
+  const rootExpress = path.join(rootNodeModules, 'express');
+  if (fs.existsSync(innerNodeModules) && !fs.existsSync(rootExpress)) {
+    try {
+      fs.cpSync(innerNodeModules, rootNodeModules, { recursive: true, force: true });
+      console.log('✓ Synchronized dependencies to root node_modules.');
+    } catch (e) {
+      console.warn('Notice syncing root node_modules:', e.message);
+    }
+  }
+
   console.log('✓ Successfully prepared Dental City assets and root dist.');
 } catch (err) {
   console.warn('Notice while syncing root assets:', err.message);

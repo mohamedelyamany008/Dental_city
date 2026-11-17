@@ -36,7 +36,7 @@ const app = express();
 const PORT = process.env.PORT || process.env.HTTP_PLATFORM_PORT || 5083;
 const isNamedPipe = typeof PORT === 'string' && PORT.startsWith('\\\\.\\pipe\\');
 const portNumber = Number(PORT) || 5083;
-const HOST = '0.0.0.0';
+const isFly = Boolean(process.env.FLY_APP_NAME || process.env.FLY_ALLOC_ID);
 
 // Body and Cookie Parsers
 app.use(express.urlencoded({ extended: true }));
@@ -199,10 +199,18 @@ if (!process.env.VERCEL) {
         console.log(`🚀 Server running via Named Pipe: ${PORT} (IIS / AppPool Mode)`);
         console.log(`====================================================`);
       })
-    : app.listen(portNumber, HOST, () => {
+    : isFly
+    ? app.listen(portNumber, '0.0.0.0', () => {
         console.log(`====================================================`);
         console.log(`🏥 Dental City Web Application (Node.js + TypeScript)`);
-        console.log(`🚀 Server running on: http://${HOST}:${portNumber}`);
+        console.log(`🚀 Server running on Fly.io: http://0.0.0.0:${portNumber}`);
+        console.log(`💓 Health Check: http://0.0.0.0:${portNumber}/health`);
+        console.log(`====================================================`);
+      })
+    : app.listen(portNumber, () => {
+        console.log(`====================================================`);
+        console.log(`🏥 Dental City Web Application (Node.js + TypeScript)`);
+        console.log(`🚀 Server running on: http://localhost:${portNumber}`);
         console.log(`📅 Appointments: http://localhost:${portNumber}/Appointments/Book`);
         console.log(`🔐 Doctor Portal: http://localhost:${portNumber}/Doctor/Login`);
         console.log(`💓 Health Check: http://localhost:${portNumber}/health`);
