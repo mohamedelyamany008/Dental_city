@@ -1,5 +1,5 @@
 # ملف الكود البرمجي الشامل لمشروع مركز دنتل سيتي (Dental City)
-> **تاريخ التجميع:** ١٧‏/١١‏/٢٠٢٦، ٣:٥٨:٣٥ م
+> **تاريخ التجميع:** ١٧‏/١١‏/٢٠٢٦، ٤:٢٧:٤٩ م
 > **البيئة:** Node.js (TypeScript) + Express + EJS + Supabase (PostgreSQL)
 > **ملاحظة:** تم تجميع كل ملفات المشروع البرمجية في هذا المستند للعرض والمراجعة والنسخ بسهولة دون المساس أو التعديل بأي من الملفات الأصلية.
 
@@ -5407,8 +5407,8 @@ body {
 ### Root package.json
 
 - **المسار:** `package.json`
-- **عدد الأسطر:** 20 سطر
-- **الحجم:** 0.4 KB
+- **عدد الأسطر:** 17 سطر
+- **الحجم:** 0.3 KB
 
 ````json
 {
@@ -5421,13 +5421,10 @@ body {
     "node": "20.x || 22.x"
   },
   "scripts": {
-    "postinstall": "npm install --prefix \"Dental city\"",
+    "postinstall": "node scripts/postinstall.js",
     "build": "node scripts/build.js",
     "start": "node server.js",
     "dev": "npm run dev --prefix \"Dental city\""
-  },
-  "dependencies": {
-    "ws": "^8.23.0"
   }
 }
 ````
@@ -5574,8 +5571,8 @@ export default app;
 ### Root Vercel Build Pipeline (scripts/build.js)
 
 - **المسار:** `scripts/build.js`
-- **عدد الأسطر:** 46 سطر
-- **الحجم:** 1.6 KB
+- **عدد الأسطر:** 56 سطر
+- **الحجم:** 1.9 KB
 
 ````javascript
 import { execSync } from 'child_process';
@@ -5588,7 +5585,18 @@ const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
 const innerDir = path.join(rootDir, 'Dental city');
 
-console.log('🚀 Running Dental City build pipeline for Vercel...');
+console.log('🚀 Running Dental City build pipeline...');
+
+// 0. Ensure dependencies are installed in Dental city
+try {
+  const nodeModulesDir = path.join(innerDir, 'node_modules');
+  if (!fs.existsSync(nodeModulesDir)) {
+    console.log('📦 Installing dependencies in Dental city...');
+    execSync('npm install', { cwd: innerDir, stdio: 'inherit' });
+  }
+} catch (err) {
+  console.warn('Warning checking/installing dependencies in Dental city:', err.message);
+}
 
 // 1. Build TypeScript in Dental city
 try {
@@ -5618,11 +5626,10 @@ try {
     fs.cpSync(srcPublic, rootPublic, { recursive: true, force: true });
   }
 
-  console.log('✓ Successfully prepared Dental City assets for Vercel.');
+  console.log('✓ Successfully prepared Dental City assets.');
 } catch (err) {
   console.warn('Notice while syncing root assets:', err.message);
 }
-
 ````
 
 ---

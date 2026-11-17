@@ -8,7 +8,18 @@ const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
 const innerDir = path.join(rootDir, 'Dental city');
 
-console.log('🚀 Running Dental City build pipeline for Vercel...');
+console.log('🚀 Running Dental City build pipeline...');
+
+// 0. Ensure dependencies are installed in Dental city
+try {
+  const nodeModulesDir = path.join(innerDir, 'node_modules');
+  if (!fs.existsSync(nodeModulesDir)) {
+    console.log('📦 Installing dependencies in Dental city...');
+    execSync('npm install', { cwd: innerDir, stdio: 'inherit' });
+  }
+} catch (err) {
+  console.warn('Warning checking/installing dependencies in Dental city:', err.message);
+}
 
 // 1. Build TypeScript in Dental city
 try {
@@ -38,8 +49,7 @@ try {
     fs.cpSync(srcPublic, rootPublic, { recursive: true, force: true });
   }
 
-  console.log('✓ Successfully prepared Dental City assets for Vercel.');
+  console.log('✓ Successfully prepared Dental City assets.');
 } catch (err) {
   console.warn('Notice while syncing root assets:', err.message);
 }
-
