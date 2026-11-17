@@ -1,5 +1,5 @@
 # ملف الكود البرمجي الشامل لمشروع مركز دينتال سيتي (Dental City)
-> **تاريخ التجميع:** ١٨‏/١١‏/٢٠٢٦، ١٢:٤٠:٥١ ص
+> **تاريخ التجميع:** ١٨‏/١١‏/٢٠٢٦، ١:١٦:٠٩ ص
 > **البيئة:** Node.js (TypeScript) + Express + EJS + Supabase (PostgreSQL)
 > **ملاحظة:** تم تجميع كل ملفات المشروع البرمجية في هذا المستند للعرض والمراجعة والنسخ بسهولة دون المساس أو التعديل بأي من الملفات الأصلية.
 
@@ -5568,8 +5568,8 @@ export default app;
 ### Root IIS / AppPool Configuration (web.config)
 
 - **المسار:** `web.config`
-- **عدد الأسطر:** 42 سطر
-- **الحجم:** 1.5 KB
+- **عدد الأسطر:** 46 سطر
+- **الحجم:** 1.6 KB
 
 ````xml
 <?xml version="1.0" encoding="utf-8"?>
@@ -5583,6 +5583,10 @@ export default app;
     <!-- Prevent IIS from overriding Express custom Arabic error pages -->
     <httpErrors existingResponse="PassThrough" />
 
+    <!-- Disable directory browsing and default document processing to prevent SPA routing conflicts -->
+    <directoryBrowse enabled="false" />
+    <defaultDocument enabled="false" />
+
     <!-- Register httpPlatformHandler to route traffic to Node.js -->
     <handlers>
       <add name="httpPlatformHandler" path="*" verb="*" modules="httpPlatformHandler" resourceType="Unspecified" />
@@ -5593,8 +5597,8 @@ export default app;
                   arguments=".\server.js" 
                   startupTimeLimit="60" 
                   startupRetryCount="3"
-                  stdoutLogEnabled="false" 
-                  stdoutLogFile=".\logs\stdout">
+                  stdoutLogEnabled="true" 
+                  stdoutLogFile=".\logs\node">
       <environmentVariables>
         <environmentVariable name="PORT" value="%HTTP_PLATFORM_PORT%" />
         <environmentVariable name="NODE_ENV" value="production" />
@@ -5883,8 +5887,8 @@ EMERGENCY_PHONE=01551388988
 ### Subfolder IIS Configuration (web.config)
 
 - **المسار:** `Dental city/web.config`
-- **عدد الأسطر:** 34 سطر
-- **الحجم:** 1.1 KB
+- **عدد الأسطر:** 36 سطر
+- **الحجم:** 1.2 KB
 
 ````xml
 <?xml version="1.0" encoding="utf-8"?>
@@ -5895,6 +5899,8 @@ EMERGENCY_PHONE=01551388988
 <configuration>
   <system.webServer>
     <httpErrors existingResponse="PassThrough" />
+    <directoryBrowse enabled="false" />
+    <defaultDocument enabled="false" />
     <handlers>
       <add name="httpPlatformHandler" path="*" verb="*" modules="httpPlatformHandler" resourceType="Unspecified" />
     </handlers>
@@ -5902,8 +5908,8 @@ EMERGENCY_PHONE=01551388988
                   arguments=".\dist\server.js" 
                   startupTimeLimit="60" 
                   startupRetryCount="3"
-                  stdoutLogEnabled="false" 
-                  stdoutLogFile=".\logs\stdout">
+                  stdoutLogEnabled="true" 
+                  stdoutLogFile=".\logs\node">
       <environmentVariables>
         <environmentVariable name="PORT" value="%HTTP_PLATFORM_PORT%" />
         <environmentVariable name="NODE_ENV" value="production" />
