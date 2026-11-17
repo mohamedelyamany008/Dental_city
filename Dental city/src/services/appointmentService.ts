@@ -725,7 +725,7 @@ export class AppointmentService {
       doctor_id: 1,
       doctor_name: doctor,
       doctor_specialty: 'طب وجراحة الفم والأسنان',
-      patient_name: row['patient name'] || 'مريض دنتل سيتي',
+      patient_name: row['patient name'] || 'مريض دينتال سيتي',
       patient_phone: row.phone || '',
       birth_date: birthDate,
       gender: gender,

@@ -48,7 +48,7 @@ appointmentRoutes.get(['/Appointments/Book', '/appointments/book'], async (req: 
     const emergencyPhone = AppointmentService.getEmergencyPhone();
 
     return res.render('appointments/book', {
-      title: 'حجز موعد عيادة - دنتل سيتي (Dental City)',
+      title: 'حجز موعد عيادة - دينتال سيتي (Dental City)',
       doctors,
       services,
       emergencyPhone,
@@ -85,7 +85,7 @@ appointmentRoutes.post(['/Appointments/Book', '/appointments/book'], async (req:
       });
 
       return res.status(400).render('appointments/book', {
-        title: 'حجز موعد عيادة - دنتل سيتي (Dental City)',
+        title: 'حجز موعد عيادة - دينتال سيتي (Dental City)',
         doctors,
         services,
         emergencyPhone,
@@ -110,7 +110,7 @@ appointmentRoutes.post(['/Appointments/Book', '/appointments/book'], async (req:
       const emergencyPhone = AppointmentService.getEmergencyPhone();
 
       return res.status(400).render('appointments/book', {
-        title: 'حجز موعد عيادة - دنتل سيتي (Dental City)',
+        title: 'حجز موعد عيادة - دينتال سيتي (Dental City)',
         doctors,
         services,
         emergencyPhone,
@@ -147,7 +147,7 @@ appointmentRoutes.get(['/Appointments/Confirmation', '/appointments/confirmation
     }
 
     return res.render('appointments/confirmation', {
-      title: 'تأكيد حجز الموعد - دنتل سيتي (Dental City)',
+      title: 'تأكيد حجز الموعد - دينتال سيتي (Dental City)',
       booking,
       emergencyPhone: AppointmentService.getEmergencyPhone()
     });

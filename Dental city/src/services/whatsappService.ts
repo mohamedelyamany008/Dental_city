@@ -22,7 +22,7 @@ export class WhatsAppNotificationService {
       booking.age ? `العمر: ${booking.age} سنة` : (booking.birth_date ? `تاريخ الميلاد: ${booking.birth_date}` : '')
     ].filter(Boolean).join(' | ');
 
-    const message = `تم تسجيل موعد جديد بنجاح في مركز دنتل سيتي!
+    const message = `تم تسجيل موعد جديد بنجاح في مركز دينتال سيتي!
 رقم الحجز: ${booking.reference}
 المريض: ${booking.patient_name} (${booking.patient_phone}) ${extraDetails ? `[${extraDetails}]` : ''}
 الطبيب: ${booking.doctor_name}

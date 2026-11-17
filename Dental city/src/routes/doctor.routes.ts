@@ -13,7 +13,7 @@ doctorRoutes.get(['/Doctor/Login', '/doctor/login'], (req: Request, res: Respons
   }
 
   return res.render('doctor/login', {
-    title: 'تسجيل دخول الكادر الطبي - دنتل سيتي',
+    title: 'تسجيل دخول الكادر الطبي - دينتال سيتي',
     returnUrl: (req.query.returnUrl as string) || '/Doctor/Dashboard',
     errors: [],
     usernameOrEmail: ''
@@ -28,7 +28,7 @@ doctorRoutes.post(['/Doctor/Login', '/doctor/login'], async (req: Request, res: 
     if (!parsed.success) {
       const errorMsgs = parsed.error.issues.map((e: { message: string }) => e.message);
       return res.status(400).render('doctor/login', {
-        title: 'تسجيل دخول الكادر الطبي - دنتل سيتي',
+        title: 'تسجيل دخول الكادر الطبي - دينتال سيتي',
         returnUrl: (req.query.returnUrl as string) || '/Doctor/Dashboard',
         errors: errorMsgs,
         usernameOrEmail: (req.body.usernameOrEmail as string) || ''
@@ -41,7 +41,7 @@ doctorRoutes.post(['/Doctor/Login', '/doctor/login'], async (req: Request, res: 
 
     if (!result.success) {
       return res.status(401).render('doctor/login', {
-        title: 'تسجيل دخول الكادر الطبي - دنتل سيتي',
+        title: 'تسجيل دخول الكادر الطبي - دينتال سيتي',
         returnUrl: (req.query.returnUrl as string) || '/Doctor/Dashboard',
         errors: [result.errorMessage || 'بيانات الدخول غير صحيحة، يرجى المحاولة مرة أخرى.'],
         usernameOrEmail
@@ -69,7 +69,7 @@ doctorRoutes.post(['/Doctor/Login', '/doctor/login'], async (req: Request, res: 
     const msg = err instanceof Error ? err.message : String(err);
     console.error('Doctor login error:', msg);
     return res.status(500).render('doctor/login', {
-      title: 'تسجيل دخول الكادر الطبي - دنتل سيتي',
+      title: 'تسجيل دخول الكادر الطبي - دينتال سيتي',
       returnUrl: (req.query.returnUrl as string) || '/Doctor/Dashboard',
       errors: ['حدث خطأ أثناء معالجة تسجيل الدخول، يرجى المحاولة مرة أخرى لاحقاً.'],
       usernameOrEmail: (req.body.usernameOrEmail as string) || ''
@@ -94,7 +94,7 @@ doctorRoutes.get(['/Doctor/Dashboard', '/doctor/dashboard'], requireDoctorAuth, 
     const emergencyPhone = AppointmentService.getEmergencyPhone();
 
     return res.render('doctor/dashboard', {
-      title: 'لوحة التحكم وإدارة العيادة - دنتل سيتي',
+      title: 'لوحة التحكم وإدارة العيادة - دينتال سيتي',
       doctors,
       services,
       configuredSlots,

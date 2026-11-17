@@ -69,7 +69,7 @@ const sections = [
   }
 ];
 
-let out = `# ملف الكود البرمجي الشامل لمشروع مركز دنتل سيتي (Dental City)
+let out = `# ملف الكود البرمجي الشامل لمشروع مركز دينتال سيتي (Dental City)
 > **تاريخ التجميع:** ${new Date().toLocaleString('ar-EG', { timeZone: 'Africa/Cairo' })}
 > **البيئة:** Node.js (TypeScript) + Express + EJS + Supabase (PostgreSQL)
 > **ملاحظة:** تم تجميع كل ملفات المشروع البرمجية في هذا المستند للعرض والمراجعة والنسخ بسهولة دون المساس أو التعديل بأي من الملفات الأصلية.

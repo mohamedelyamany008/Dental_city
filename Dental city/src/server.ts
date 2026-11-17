@@ -169,7 +169,7 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>خطأ في الخادم - دنتل سيتي</title>
+          <title>خطأ في الخادم - دينتال سيتي</title>
           <style>
             body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f8fafc; color: #1e293b; text-align: center; padding: 50px 20px; }
             .card { max-width: 500px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }

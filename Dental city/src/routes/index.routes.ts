@@ -10,7 +10,7 @@ indexRoutes.get('/', async (_req: Request, res: Response) => {
     const emergencyPhone = AppointmentService.getEmergencyPhone();
 
     return res.render('index', {
-      title: 'الرئيسية - مركز دنتل سيتي لطب وجراحة الأسنان',
+      title: 'الرئيسية - مركز دينتال سيتي لطب وجراحة الأسنان',
       doctors,
       services,
       emergencyPhone
@@ -19,7 +19,7 @@ indexRoutes.get('/', async (_req: Request, res: Response) => {
     const msg = err instanceof Error ? err.message : String(err);
     console.error('Error rendering index page:', msg);
     return res.render('index', {
-      title: 'الرئيسية - مركز دنتل سيتي لطب وجراحة الأسنان',
+      title: 'الرئيسية - مركز دينتال سيتي لطب وجراحة الأسنان',
       doctors: [],
       services: [],
       emergencyPhone: '01551388988'
@@ -29,6 +29,6 @@ indexRoutes.get('/', async (_req: Request, res: Response) => {
 
 indexRoutes.get('/Privacy', (_req: Request, res: Response) => {
   return res.render('privacy', {
-    title: 'سياسة الخصوصية - دنتل سيتي'
+    title: 'سياسة الخصوصية - دينتال سيتي'
   });
 });

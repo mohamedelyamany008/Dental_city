@@ -1,5 +1,5 @@
-# ملف الكود البرمجي الشامل لمشروع مركز دنتل سيتي (Dental City)
-> **تاريخ التجميع:** ١٨‏/١١‏/٢٠٢٦، ١٢:٠٤:٣٨ ص
+# ملف الكود البرمجي الشامل لمشروع مركز دينتال سيتي (Dental City)
+> **تاريخ التجميع:** ١٨‏/١١‏/٢٠٢٦، ١٢:٠٩:٥١ ص
 > **البيئة:** Node.js (TypeScript) + Express + EJS + Supabase (PostgreSQL)
 > **ملاحظة:** تم تجميع كل ملفات المشروع البرمجية في هذا المستند للعرض والمراجعة والنسخ بسهولة دون المساس أو التعديل بأي من الملفات الأصلية.
 
@@ -235,7 +235,7 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>خطأ في الخادم - دنتل سيتي</title>
+          <title>خطأ في الخادم - دينتال سيتي</title>
           <style>
             body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f8fafc; color: #1e293b; text-align: center; padding: 50px 20px; }
             .card { max-width: 500px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
@@ -657,7 +657,7 @@ indexRoutes.get('/', async (_req: Request, res: Response) => {
     const emergencyPhone = AppointmentService.getEmergencyPhone();
 
     return res.render('index', {
-      title: 'الرئيسية - مركز دنتل سيتي لطب وجراحة الأسنان',
+      title: 'الرئيسية - مركز دينتال سيتي لطب وجراحة الأسنان',
       doctors,
       services,
       emergencyPhone
@@ -666,7 +666,7 @@ indexRoutes.get('/', async (_req: Request, res: Response) => {
     const msg = err instanceof Error ? err.message : String(err);
     console.error('Error rendering index page:', msg);
     return res.render('index', {
-      title: 'الرئيسية - مركز دنتل سيتي لطب وجراحة الأسنان',
+      title: 'الرئيسية - مركز دينتال سيتي لطب وجراحة الأسنان',
       doctors: [],
       services: [],
       emergencyPhone: '01551388988'
@@ -676,7 +676,7 @@ indexRoutes.get('/', async (_req: Request, res: Response) => {
 
 indexRoutes.get('/Privacy', (_req: Request, res: Response) => {
   return res.render('privacy', {
-    title: 'سياسة الخصوصية - دنتل سيتي'
+    title: 'سياسة الخصوصية - دينتال سيتي'
   });
 });
 ````
@@ -740,7 +740,7 @@ appointmentRoutes.get(['/Appointments/Book', '/appointments/book'], async (req: 
     const emergencyPhone = AppointmentService.getEmergencyPhone();
 
     return res.render('appointments/book', {
-      title: 'حجز موعد عيادة - دنتل سيتي (Dental City)',
+      title: 'حجز موعد عيادة - دينتال سيتي (Dental City)',
       doctors,
       services,
       emergencyPhone,
@@ -777,7 +777,7 @@ appointmentRoutes.post(['/Appointments/Book', '/appointments/book'], async (req:
       });
 
       return res.status(400).render('appointments/book', {
-        title: 'حجز موعد عيادة - دنتل سيتي (Dental City)',
+        title: 'حجز موعد عيادة - دينتال سيتي (Dental City)',
         doctors,
         services,
         emergencyPhone,
@@ -802,7 +802,7 @@ appointmentRoutes.post(['/Appointments/Book', '/appointments/book'], async (req:
       const emergencyPhone = AppointmentService.getEmergencyPhone();
 
       return res.status(400).render('appointments/book', {
-        title: 'حجز موعد عيادة - دنتل سيتي (Dental City)',
+        title: 'حجز موعد عيادة - دينتال سيتي (Dental City)',
         doctors,
         services,
         emergencyPhone,
@@ -839,7 +839,7 @@ appointmentRoutes.get(['/Appointments/Confirmation', '/appointments/confirmation
     }
 
     return res.render('appointments/confirmation', {
-      title: 'تأكيد حجز الموعد - دنتل سيتي (Dental City)',
+      title: 'تأكيد حجز الموعد - دينتال سيتي (Dental City)',
       booking,
       emergencyPhone: AppointmentService.getEmergencyPhone()
     });
@@ -875,7 +875,7 @@ doctorRoutes.get(['/Doctor/Login', '/doctor/login'], (req: Request, res: Respons
   }
 
   return res.render('doctor/login', {
-    title: 'تسجيل دخول الكادر الطبي - دنتل سيتي',
+    title: 'تسجيل دخول الكادر الطبي - دينتال سيتي',
     returnUrl: (req.query.returnUrl as string) || '/Doctor/Dashboard',
     errors: [],
     usernameOrEmail: ''
@@ -890,7 +890,7 @@ doctorRoutes.post(['/Doctor/Login', '/doctor/login'], async (req: Request, res: 
     if (!parsed.success) {
       const errorMsgs = parsed.error.issues.map((e: { message: string }) => e.message);
       return res.status(400).render('doctor/login', {
-        title: 'تسجيل دخول الكادر الطبي - دنتل سيتي',
+        title: 'تسجيل دخول الكادر الطبي - دينتال سيتي',
         returnUrl: (req.query.returnUrl as string) || '/Doctor/Dashboard',
         errors: errorMsgs,
         usernameOrEmail: (req.body.usernameOrEmail as string) || ''
@@ -903,7 +903,7 @@ doctorRoutes.post(['/Doctor/Login', '/doctor/login'], async (req: Request, res: 
 
     if (!result.success) {
       return res.status(401).render('doctor/login', {
-        title: 'تسجيل دخول الكادر الطبي - دنتل سيتي',
+        title: 'تسجيل دخول الكادر الطبي - دينتال سيتي',
         returnUrl: (req.query.returnUrl as string) || '/Doctor/Dashboard',
         errors: [result.errorMessage || 'بيانات الدخول غير صحيحة، يرجى المحاولة مرة أخرى.'],
         usernameOrEmail
@@ -931,7 +931,7 @@ doctorRoutes.post(['/Doctor/Login', '/doctor/login'], async (req: Request, res: 
     const msg = err instanceof Error ? err.message : String(err);
     console.error('Doctor login error:', msg);
     return res.status(500).render('doctor/login', {
-      title: 'تسجيل دخول الكادر الطبي - دنتل سيتي',
+      title: 'تسجيل دخول الكادر الطبي - دينتال سيتي',
       returnUrl: (req.query.returnUrl as string) || '/Doctor/Dashboard',
       errors: ['حدث خطأ أثناء معالجة تسجيل الدخول، يرجى المحاولة مرة أخرى لاحقاً.'],
       usernameOrEmail: (req.body.usernameOrEmail as string) || ''
@@ -956,7 +956,7 @@ doctorRoutes.get(['/Doctor/Dashboard', '/doctor/dashboard'], requireDoctorAuth, 
     const emergencyPhone = AppointmentService.getEmergencyPhone();
 
     return res.render('doctor/dashboard', {
-      title: 'لوحة التحكم وإدارة العيادة - دنتل سيتي',
+      title: 'لوحة التحكم وإدارة العيادة - دينتال سيتي',
       doctors,
       services,
       configuredSlots,
@@ -1980,7 +1980,7 @@ export class AppointmentService {
       doctor_id: 1,
       doctor_name: doctor,
       doctor_specialty: 'طب وجراحة الفم والأسنان',
-      patient_name: row['patient name'] || 'مريض دنتل سيتي',
+      patient_name: row['patient name'] || 'مريض دينتال سيتي',
       patient_phone: row.phone || '',
       birth_date: birthDate,
       gender: gender,
@@ -2459,7 +2459,7 @@ export class WhatsAppNotificationService {
       booking.age ? `العمر: ${booking.age} سنة` : (booking.birth_date ? `تاريخ الميلاد: ${booking.birth_date}` : '')
     ].filter(Boolean).join(' | ');
 
-    const message = `تم تسجيل موعد جديد بنجاح في مركز دنتل سيتي!
+    const message = `تم تسجيل موعد جديد بنجاح في مركز دينتال سيتي!
 رقم الحجز: ${booking.reference}
 المريض: ${booking.patient_name} (${booking.patient_phone}) ${extraDetails ? `[${extraDetails}]` : ''}
 الطبيب: ${booking.doctor_name}
@@ -2492,7 +2492,7 @@ export class WhatsAppNotificationService {
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title><%= typeof title !== 'undefined' ? title : 'مركز دنتل سيتي لطب وجراحة الأسنان' %></title>
+    <title><%= typeof title !== 'undefined' ? title : 'مركز دينتال سيتي لطب وجراحة الأسنان' %></title>
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="/images/logo.png" />
     <link rel="shortcut icon" type="image/png" href="/images/logo.png" />
@@ -2610,7 +2610,7 @@ export class WhatsAppNotificationService {
                 <span class="badge bg-primary-subtle text-primary px-3 py-2 rounded-pill fw-semibold mb-3">
                     <i class="bi bi-stars"></i> رعاية متكاملة لابتسامتك
                 </span>
-                <h1 class="display-5 fw-bold text-dark mb-3">مركز دنتل سيتي (Dental City)</h1>
+                <h1 class="display-5 fw-bold text-dark mb-3">مركز دينتال سيتي (Dental City)</h1>
                 <p class="lead text-muted mb-4">
                     نقدم أحدث الحلول العلاجية والتجميلية لطب الأسنان بأعلى معايير الجودة والتعقيم وبأيدي نخبة من الاستشاريين المتخصصين. احجز موعدك الآن بكل سهولة عبر منصتنا الإلكترونية.
                 </p>
@@ -2678,7 +2678,7 @@ export class WhatsAppNotificationService {
     <% if (typeof doctors !== 'undefined' && doctors.length > 0) { %>
     <div class="card border-0 shadow-sm rounded-4 p-4 mb-4">
         <h4 class="fw-bold mb-3 text-dark">
-            <i class="bi bi-people-fill text-primary me-2"></i> استشاريو وأطباء مركز دنتل سيتي
+            <i class="bi bi-people-fill text-primary me-2"></i> استشاريو وأطباء مركز دينتال سيتي
         </h4>
         <div class="row g-3">
             <% doctors.forEach(doc => { %>
@@ -2898,7 +2898,7 @@ export class WhatsAppNotificationService {
                 حجز موعد عيادة الأسنان
             </h1>
             <p class="mb-0 text-white-50 fs-6">
-                مرحباً بك في مركز دنتل سيتي (Dental City). يرجى تعبئة بيانات المريض واختيار الطبيب والموعد المناسب لإتمام الحجز بكل سهولة.
+                مرحباً بك في مركز دينتال سيتي (Dental City). يرجى تعبئة بيانات المريض واختيار الطبيب والموعد المناسب لإتمام الحجز بكل سهولة.
             </p>
         </div>
         <div class="mt-3 mt-md-0">
@@ -3669,7 +3669,7 @@ export class WhatsAppNotificationService {
                 </div>
                 <h2 class="fw-bold mb-1">تم تأكيد حجزك بنجاح!</h2>
                 <p class="mb-0 text-white-50 fs-6">
-                    شكراً لاختيارك مركز دنتل سيتي (Dental City). نتطلع لتقديم أفضل رعاية لابتسامتك.
+                    شكراً لاختيارك مركز دينتال سيتي (Dental City). نتطلع لتقديم أفضل رعاية لابتسامتك.
                 </p>
             </div>
 
@@ -3884,7 +3884,7 @@ export class WhatsAppNotificationService {
             </div>
             <h3 class="fw-bold mb-1">بوابة الأطباء والإدارة</h3>
             <p class="text-white-50 small mb-0">
-                منطقة محمية خاصة بكادر عيادات دنتل سيتي (Dental City)
+                منطقة محمية خاصة بكادر عيادات دينتال سيتي (Dental City)
             </p>
         </div>
 
@@ -5304,7 +5304,7 @@ export class WhatsAppNotificationService {
             <i class="bi bi-shield-check text-primary me-2"></i> سياسة الخصوصية وسرية البيانات
         </h2>
         <p class="lead text-muted mb-4">
-            في مركز دنتل سيتي (Dental City)، نولي سرية وخصوصية بيانات مرضانا الكرام أهمية قصوى.
+            في مركز دينتال سيتي (Dental City)، نولي سرية وخصوصية بيانات مرضانا الكرام أهمية قصوى.
         </p>
 
         <h5 class="fw-bold text-dark mt-4">1. البيانات التي نجمعها</h5>
