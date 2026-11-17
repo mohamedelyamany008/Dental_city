@@ -20,3 +20,4 @@ try {
 } catch (err) {
   console.warn('Notice while copying views:', err.message);
 }
+

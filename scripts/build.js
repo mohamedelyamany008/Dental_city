@@ -42,3 +42,4 @@ try {
 } catch (err) {
   console.warn('Notice while syncing root assets:', err.message);
 }
+
