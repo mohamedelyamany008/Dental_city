@@ -15,12 +15,12 @@ import { injectLocals } from './middleware/auth.js';
 dotenv.config();
 
 // ============================================================================
-// Process & AppPool Stability Safeguards
+// Process & Container Stability Safeguards
 // Intercept uncaught exceptions and unhandled promise rejections to prevent
-// IIS AppPool, Passenger, or Node process termination/recycling on hosting.
+// unexpected process crashes in production (Fly.io, Docker, IISNode).
 // ============================================================================
 process.on('uncaughtException', (err: Error) => {
-  console.error('[CRITICAL] Uncaught Exception intercepted by AppPool safeguard:', err);
+  console.error('[CRITICAL] Uncaught Exception:', err);
 });
 
 process.on('unhandledRejection', (reason: unknown, promise: Promise<unknown>) => {
@@ -31,23 +31,48 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+
+// Configuration: Port & Host (Fly.io requires binding to 0.0.0.0)
 const PORT = process.env.PORT || 5083;
 const isNamedPipe = typeof PORT === 'string' && PORT.startsWith('\\\\.\\pipe\\');
+const portNumber = Number(PORT) || 5083;
+const HOST = '0.0.0.0';
 
-// Middleware for parsing body
+// Body and Cookie Parsers
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(cookieParser());
 
-// Trust proxy for secure cookies in serverless/cloud environments (e.g. Vercel)
-if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
+// Trust proxy for Fly.io, Vercel, and reverse proxies (enables secure cookies and client IP forwarding)
+const isCloudOrProd = Boolean(
+  process.env.FLY_APP_NAME ||
+  process.env.FLY_ALLOC_ID ||
+  process.env.VERCEL ||
+  process.env.NODE_ENV === 'production'
+);
+if (isCloudOrProd) {
   app.set('trust proxy', 1);
 }
 
-// Session setup
+// Session Secret Management (Strict with warning fallback)
+let sessionSecret = process.env.SESSION_SECRET;
+if (!sessionSecret) {
+  sessionSecret = 'temp_insecure_fallback_secret_please_set_in_production_dental_city';
+  console.warn(`
+⚠️  ========================================================================
+⚠️  [SECURITY WARNING] SESSION_SECRET is not set in environment variables!
+⚠️  Using a temporary fallback secret.
+⚠️  FOR PRODUCTION (Fly.io, Docker):
+⚠️  Please set a strong random secret via environment variables:
+⚠️  Fly.io CLI: fly secrets set SESSION_SECRET=$(openssl rand -hex 32)
+⚠️  ========================================================================
+`);
+}
+
+// Session Middleware
 app.use(
   session({
-    secret: process.env.SESSION_SECRET || 'dental_city_secure_key_2026',
+    secret: sessionSecret,
     resave: false,
     saveUninitialized: false,
     cookie: {
@@ -61,14 +86,23 @@ app.use(
 // Inject common locals (user session, flash messages)
 app.use(injectLocals);
 
-// Static assets resolution (resilient across local and Vercel environments)
-const possiblePublicPaths = [
-  path.join(__dirname, '..', 'public'),
-  path.join(__dirname, 'public'),
-  path.join(process.cwd(), 'Dental city', 'public'),
-  path.join(process.cwd(), 'public')
-];
-const resolvedPublicPath = possiblePublicPaths.find(p => fs.existsSync(p)) || path.join(__dirname, '..', 'public');
+// ============================================================================
+// Clean Path Resolution for Static Assets and Views (Docker, Fly.io, Local)
+// ============================================================================
+function findExistingPath(candidates: string[], fallback: string): string {
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) return candidate;
+  }
+  return fallback;
+}
+
+// Public static files
+const resolvedPublicPath = findExistingPath([
+  path.resolve(__dirname, '..', 'public'),               // dist/../public or src/../public
+  path.resolve(process.cwd(), 'public'),                 // Docker WORKDIR /app/public
+  path.resolve(process.cwd(), 'Dental city', 'public')   // Root-level invocation
+], path.resolve(__dirname, '..', 'public'));
+
 app.use(express.static(resolvedPublicPath));
 
 // View engine setup (EJS with layouts)
@@ -76,19 +110,28 @@ app.use(expressLayouts);
 app.set('layout', 'layouts/main');
 app.set('view engine', 'ejs');
 
-// Resilient views path resolution (works when invoked from root, subfolder, or Vercel serverless)
-const possibleViewPaths = [
-  path.join(__dirname, 'views'),
-  path.join(__dirname, '..', 'src', 'views'),
-  path.join(__dirname, '..', 'dist', 'views'),
-  path.join(process.cwd(), 'Dental city', 'src', 'views'),
-  path.join(process.cwd(), 'Dental city', 'dist', 'views'),
-  path.join(process.cwd(), 'dist', 'views'),
-  path.join(process.cwd(), 'src', 'views'),
-  path.join(process.cwd(), 'views')
-];
-const resolvedViewsPath = possibleViewPaths.find(p => fs.existsSync(p)) || path.join(__dirname, 'views');
+// Views directory resolution
+const resolvedViewsPath = findExistingPath([
+  path.resolve(__dirname, 'views'),                       // dist/views (compiled) or src/views
+  path.resolve(process.cwd(), 'dist', 'views'),           // Docker WORKDIR /app/dist/views
+  path.resolve(process.cwd(), 'Dental city', 'dist', 'views'),
+  path.resolve(process.cwd(), 'Dental city', 'src', 'views'),
+  path.resolve(process.cwd(), 'views')
+], path.resolve(__dirname, 'views'));
+
 app.set('views', resolvedViewsPath);
+
+// ============================================================================
+// Fast Health Check (Fly.io / Docker Health Probe)
+// ============================================================================
+app.get(['/health', '/healthz'], (_req: Request, res: Response) => {
+  res.status(200).json({
+    status: 'ok',
+    service: 'dental-city',
+    uptime: Math.floor(process.uptime()),
+    timestamp: new Date().toISOString()
+  });
+});
 
 // Mount application routes
 app.use('/', indexRoutes);
@@ -148,18 +191,39 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
 
 // Bind to port or IIS named pipe if not running in serverless mode (Vercel)
 if (!process.env.VERCEL) {
-  app.listen(PORT, () => {
-    console.log(`====================================================`);
-    console.log(`🏥 Dental City Web Application (Node.js + TypeScript)`);
-    if (isNamedPipe) {
-      console.log(`🚀 Server running via Named Pipe: ${PORT} (IIS / AppPool Mode)`);
-    } else {
-      console.log(`🚀 Server running on: http://localhost:${PORT}`);
-    }
-    console.log(`📅 Appointments: http://localhost:${PORT}/Appointments/Book`);
-    console.log(`🔐 Doctor Portal: http://localhost:${PORT}/Doctor/Login`);
-    console.log(`====================================================`);
-  });
+  const server = isNamedPipe
+    ? app.listen(PORT, () => {
+        console.log(`====================================================`);
+        console.log(`🏥 Dental City Web Application (Node.js + TypeScript)`);
+        console.log(`🚀 Server running via Named Pipe: ${PORT} (IIS / AppPool Mode)`);
+        console.log(`====================================================`);
+      })
+    : app.listen(portNumber, HOST, () => {
+        console.log(`====================================================`);
+        console.log(`🏥 Dental City Web Application (Node.js + TypeScript)`);
+        console.log(`🚀 Server running on: http://${HOST}:${portNumber}`);
+        console.log(`📅 Appointments: http://localhost:${portNumber}/Appointments/Book`);
+        console.log(`🔐 Doctor Portal: http://localhost:${portNumber}/Doctor/Login`);
+        console.log(`💓 Health Check: http://localhost:${portNumber}/health`);
+        console.log(`====================================================`);
+      });
+
+  // Graceful shutdown handlers for Fly.io, Docker, and process managers
+  const handleShutdown = (signal: string) => {
+    console.log(`\n[SHUTDOWN] Received ${signal}. Closing server gracefully...`);
+    server.close(() => {
+      console.log('[SHUTDOWN] HTTP server closed cleanly.');
+      process.exit(0);
+    });
+
+    setTimeout(() => {
+      console.error('[SHUTDOWN] Forcing shutdown after timeout.');
+      process.exit(1);
+    }, 10000).unref();
+  };
+
+  process.on('SIGINT', () => handleShutdown('SIGINT'));
+  process.on('SIGTERM', () => handleShutdown('SIGTERM'));
 }
 
 export default app;
