@@ -1,5 +1,5 @@
 # ملف الكود البرمجي الشامل لمشروع مركز دينتال سيتي (Dental City)
-> **تاريخ التجميع:** ١٨‏/١١‏/٢٠٢٦، ١:١٦:٠٩ ص
+> **تاريخ التجميع:** ١٨‏/١١‏/٢٠٢٦، ١:٣٤:٣٨ ص
 > **البيئة:** Node.js (TypeScript) + Express + EJS + Supabase (PostgreSQL)
 > **ملاحظة:** تم تجميع كل ملفات المشروع البرمجية في هذا المستند للعرض والمراجعة والنسخ بسهولة دون المساس أو التعديل بأي من الملفات الأصلية.
 
@@ -5568,8 +5568,8 @@ export default app;
 ### Root IIS / AppPool Configuration (web.config)
 
 - **المسار:** `web.config`
-- **عدد الأسطر:** 46 سطر
-- **الحجم:** 1.6 KB
+- **عدد الأسطر:** 47 سطر
+- **الحجم:** 1.7 KB
 
 ````xml
 <?xml version="1.0" encoding="utf-8"?>
@@ -5587,8 +5587,9 @@ export default app;
     <directoryBrowse enabled="false" />
     <defaultDocument enabled="false" />
 
-    <!-- Register httpPlatformHandler to route traffic to Node.js -->
+    <!-- Register httpPlatformHandler cleanly (remove first to prevent duplicate key errors) -->
     <handlers>
+      <remove name="httpPlatformHandler" />
       <add name="httpPlatformHandler" path="*" verb="*" modules="httpPlatformHandler" resourceType="Unspecified" />
     </handlers>
 
@@ -5597,7 +5598,7 @@ export default app;
                   arguments=".\server.js" 
                   startupTimeLimit="60" 
                   startupRetryCount="3"
-                  stdoutLogEnabled="true" 
+                  stdoutLogEnabled="false" 
                   stdoutLogFile=".\logs\node">
       <environmentVariables>
         <environmentVariable name="PORT" value="%HTTP_PLATFORM_PORT%" />
@@ -5887,7 +5888,7 @@ EMERGENCY_PHONE=01551388988
 ### Subfolder IIS Configuration (web.config)
 
 - **المسار:** `Dental city/web.config`
-- **عدد الأسطر:** 36 سطر
+- **عدد الأسطر:** 37 سطر
 - **الحجم:** 1.2 KB
 
 ````xml
@@ -5902,13 +5903,14 @@ EMERGENCY_PHONE=01551388988
     <directoryBrowse enabled="false" />
     <defaultDocument enabled="false" />
     <handlers>
+      <remove name="httpPlatformHandler" />
       <add name="httpPlatformHandler" path="*" verb="*" modules="httpPlatformHandler" resourceType="Unspecified" />
     </handlers>
     <httpPlatform processPath="node" 
                   arguments=".\dist\server.js" 
                   startupTimeLimit="60" 
                   startupRetryCount="3"
-                  stdoutLogEnabled="true" 
+                  stdoutLogEnabled="false" 
                   stdoutLogFile=".\logs\node">
       <environmentVariables>
         <environmentVariable name="PORT" value="%HTTP_PLATFORM_PORT%" />

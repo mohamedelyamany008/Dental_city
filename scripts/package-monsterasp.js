@@ -55,10 +55,15 @@ if (fs.existsSync(zipPath)) {
 
 try {
   console.log('⏳ Creating publish-monsterasp.zip archive...');
-  execSync(`powershell -NoProfile -Command "Compress-Archive -Path '${outDir}\\*' -DestinationPath '${zipPath}' -Force"`, { stdio: 'inherit' });
+  execSync(`tar -a -c -f "${zipPath}" *`, { cwd: outDir, stdio: 'inherit' });
   console.log('✓ Created: publish-monsterasp.zip');
 } catch (e) {
-  console.warn('Notice: Could not auto-generate ZIP archive:', e.message);
+  try {
+    execSync(`powershell -NoProfile -Command "Compress-Archive -Path '${outDir}\\*' -DestinationPath '${zipPath}' -Force"`, { stdio: 'inherit' });
+    console.log('✓ Created: publish-monsterasp.zip (via PowerShell)');
+  } catch (psErr) {
+    console.warn('Notice: Could not auto-generate ZIP archive:', psErr.message);
+  }
 }
 
 console.log('\n============================================================');
