@@ -1,0 +1,11 @@
+{
+  "name": "dental-city-root",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "npm start --prefix \"Dental city\"",
+    "dev": "npm run dev --prefix \"Dental city\"",
+    "build": "npm run build --prefix \"Dental city\""
+  }
+}
+

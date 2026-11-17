@@ -1,0 +1,100 @@
+<div class="py-4" style="direction: rtl; text-align: right; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+    <!-- البانر الترحيبي -->
+    <div class="p-5 mb-4 bg-white rounded-4 shadow-sm border border-light">
+        <div class="row align-items-center">
+            <div class="col-lg-8">
+                <span class="badge bg-primary-subtle text-primary px-3 py-2 rounded-pill fw-semibold mb-3">
+                    <i class="bi bi-stars"></i> رعاية متكاملة لابتسامتك
+                </span>
+                <h1 class="display-5 fw-bold text-dark mb-3">مركز دنتل سيتي (Dental City)</h1>
+                <p class="lead text-muted mb-4">
+                    نقدم أحدث الحلول العلاجية والتجميلية لطب الأسنان بأعلى معايير الجودة والتعقيم وبأيدي نخبة من الاستشاريين المتخصصين. احجز موعدك الآن بكل سهولة عبر منصتنا الإلكترونية.
+                </p>
+                <div class="d-flex flex-wrap gap-3">
+                    <a href="/Appointments/Book" class="btn btn-primary btn-lg px-4 shadow-sm">
+                        <i class="bi bi-calendar2-check me-2"></i> احجز موعدك الآن
+                    </a>
+                    <a href="/Privacy" class="btn btn-outline-secondary btn-lg px-4">
+                        <i class="bi bi-shield-check me-2"></i> سياسة الخصوصية
+                    </a>
+                </div>
+            </div>
+            <div class="col-lg-4 text-center mt-4 mt-lg-0">
+                <div class="p-4 bg-light rounded-circle d-inline-flex align-items-center justify-content-center shadow-inner" style="width: 220px; height: 220px;">
+                    <i class="bi bi-hospital text-primary" style="font-size: 5.5rem;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- بطاقات المزايا -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-4">
+            <div class="card h-100 border-0 shadow-sm p-3 rounded-3">
+                <div class="card-body">
+                    <div class="rounded-circle bg-info-subtle text-info d-inline-flex p-3 mb-3">
+                        <i class="bi bi-clock-history fs-3"></i>
+                    </div>
+                    <h5 class="fw-bold">مواعيد مرنة ودقيقة</h5>
+                    <p class="text-muted small mb-0">
+                        اختر الوقت المناسب لك من جدول الفترات الصباحية أو المسائية مع تأكيد فوري وحفظ مباشر لموعدك.
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100 border-0 shadow-sm p-3 rounded-3">
+                <div class="card-body">
+                    <div class="rounded-circle bg-success-subtle text-success d-inline-flex p-3 mb-3">
+                        <i class="bi bi-heart-pulse-fill fs-3"></i>
+                    </div>
+                    <h5 class="fw-bold">نخبة من الاستشاريين</h5>
+                    <p class="text-muted small mb-0">
+                        فريق طبي متكامل يغطي زراعة وتجميل الأسنان، تقويم الأسنان، طب أسنان الأطفال، وعلاج الجذور المجهري.
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100 border-0 shadow-sm p-3 rounded-3">
+                <div class="card-body">
+                    <div class="rounded-circle bg-warning-subtle text-warning d-inline-flex p-3 mb-3">
+                        <i class="bi bi-shield-lock-fill fs-3"></i>
+                    </div>
+                    <h5 class="fw-bold">خصوصية وأمان البيانات</h5>
+                    <p class="text-muted small mb-0">
+                        نظام إدارة بيانات المرضى مصمم بمعمارية برمجية تفصل المودلز والمنطق وتضمن سرية المعلومات الطبية.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- كادر الأطباء المتاح بالعيادة -->
+    <% if (typeof doctors !== 'undefined' && doctors.length > 0) { %>
+    <div class="card border-0 shadow-sm rounded-4 p-4 mb-4">
+        <h4 class="fw-bold mb-3 text-dark">
+            <i class="bi bi-people-fill text-primary me-2"></i> استشاريو وأطباء مركز دنتل سيتي
+        </h4>
+        <div class="row g-3">
+            <% doctors.forEach(doc => { %>
+                <div class="col-md-6">
+                    <div class="border rounded-3 p-3 bg-light d-flex align-items-center gap-3">
+                        <div class="bg-white p-3 rounded-circle shadow-sm text-primary">
+                            <i class="bi <%= doc.AvatarIcon || 'bi-person-badge-fill' %> fs-2"></i>
+                        </div>
+                        <div>
+                            <h5 class="fw-bold mb-1 text-dark"><%= doc.name %></h5>
+                            <div class="text-primary small fw-semibold mb-1"><%= doc.title %> - <%= doc.specialty %></div>
+                            <div class="text-muted small">
+                                <i class="bi bi-clock me-1"></i> <%= doc.workinghours %>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            <% }); %>
+        </div>
+    </div>
+    <% } %>
+</div>
+
