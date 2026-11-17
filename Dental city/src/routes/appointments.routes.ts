@@ -64,47 +64,66 @@ appointmentRoutes.get(['/Appointments/Book', '/appointments/book'], async (req: 
 
 // POST /Appointments/Book
 appointmentRoutes.post(['/Appointments/Book', '/appointments/book'], async (req: Request, res: Response) => {
-  const parsed = BookingFormSchema.safeParse(req.body);
-
-  if (!parsed.success) {
-    const doctors = await AppointmentService.getDoctors();
-    const services = AppointmentService.getServices();
-    const emergencyPhone = AppointmentService.getEmergencyPhone();
-
-    const formattedErrors: Record<string, string> = {};
-    const issues = parsed.error.issues;
-    issues.forEach((err: { path?: readonly (string | number | symbol)[]; message: string }) => {
-      const field = err.path && err.path[0] ? String(err.path[0]) : '';
-      if (field) formattedErrors[field] = err.message;
-    });
-
-    return res.status(400).render('appointments/book', {
-      title: 'حجز موعد عيادة - دنتل سيتي (Dental City)',
-      doctors,
-      services,
-      emergencyPhone,
-      errors: formattedErrors,
-      formData: req.body
-    });
-  }
-
   try {
-    const booking = await AppointmentService.bookAppointment(parsed.data);
-    return res.redirect(`/Appointments/Confirmation?reference=${encodeURIComponent(booking.reference)}`);
+    const parsed = BookingFormSchema.safeParse(req.body);
+
+    if (!parsed.success) {
+      let doctors: any[] = [];
+      try {
+        doctors = await AppointmentService.getDoctors();
+      } catch (docErr) {
+        console.error('Failed to load doctors on form validation error:', docErr);
+      }
+      const services = AppointmentService.getServices();
+      const emergencyPhone = AppointmentService.getEmergencyPhone();
+
+      const formattedErrors: Record<string, string> = {};
+      const issues = parsed.error.issues;
+      issues.forEach((err: { path?: readonly (string | number | symbol)[]; message: string }) => {
+        const field = err.path && err.path[0] ? String(err.path[0]) : '';
+        if (field) formattedErrors[field] = err.message;
+      });
+
+      return res.status(400).render('appointments/book', {
+        title: 'حجز موعد عيادة - دنتل سيتي (Dental City)',
+        doctors,
+        services,
+        emergencyPhone,
+        errors: formattedErrors,
+        formData: req.body
+      });
+    }
+
+    try {
+      const booking = await AppointmentService.bookAppointment(parsed.data);
+      return res.redirect(`/Appointments/Confirmation?reference=${encodeURIComponent(booking.reference)}`);
+    } catch (bookingErr: unknown) {
+      const msg = bookingErr instanceof Error ? bookingErr.message : String(bookingErr);
+      console.error('Booking error:', msg);
+      let doctors: any[] = [];
+      try {
+        doctors = await AppointmentService.getDoctors();
+      } catch (docErr) {
+        console.error('Failed to load doctors on booking error:', docErr);
+      }
+      const services = AppointmentService.getServices();
+      const emergencyPhone = AppointmentService.getEmergencyPhone();
+
+      return res.status(400).render('appointments/book', {
+        title: 'حجز موعد عيادة - دنتل سيتي (Dental City)',
+        doctors,
+        services,
+        emergencyPhone,
+        errors: { appointmentTime: msg || 'تعذر تأكيد الحجز، يرجى المحاولة مرة أخرى.' },
+        formData: req.body
+      });
+    }
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error('Booking error:', msg);
-    const doctors = await AppointmentService.getDoctors();
-    const services = AppointmentService.getServices();
-    const emergencyPhone = AppointmentService.getEmergencyPhone();
-
-    return res.status(400).render('appointments/book', {
-      title: 'حجز موعد عيادة - دنتل سيتي (Dental City)',
-      doctors,
-      services,
-      emergencyPhone,
-      errors: { appointmentTime: msg || 'تعذر تأكيد الحجز، يرجى المحاولة مرة أخرى.' },
-      formData: req.body
+    console.error('[CRITICAL] Unhandled error during appointment booking:', msg);
+    return res.status(500).render('error', {
+      title: 'خطأ في عملية الحجز',
+      message: 'تعذر إتمام عملية الحجز حالياً، يرجى إعادة المحاولة لاحقاً.'
     });
   }
 });

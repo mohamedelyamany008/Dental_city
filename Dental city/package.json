@@ -5,7 +5,7 @@
   "description": "Dental City Clinic Management & Booking System - Node.js TypeScript",
   "main": "dist/server.js",
   "engines": {
-    "node": ">=20.x"
+    "node": "20.x || 22.x"
   },
   "scripts": {
     "build": "tsc && node scripts/copy-views.js",

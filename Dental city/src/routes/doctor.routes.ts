@@ -22,48 +22,59 @@ doctorRoutes.get(['/Doctor/Login', '/doctor/login'], (req: Request, res: Respons
 
 // POST /Doctor/Login
 doctorRoutes.post(['/Doctor/Login', '/doctor/login'], async (req: Request, res: Response) => {
-  const parsed = DoctorLoginSchema.safeParse(req.body);
+  try {
+    const parsed = DoctorLoginSchema.safeParse(req.body);
 
-  if (!parsed.success) {
-    const errorMsgs = parsed.error.issues.map((e: { message: string }) => e.message);
-    return res.status(400).render('doctor/login', {
+    if (!parsed.success) {
+      const errorMsgs = parsed.error.issues.map((e: { message: string }) => e.message);
+      return res.status(400).render('doctor/login', {
+        title: 'تسجيل دخول الكادر الطبي - دنتل سيتي',
+        returnUrl: (req.query.returnUrl as string) || '/Doctor/Dashboard',
+        errors: errorMsgs,
+        usernameOrEmail: (req.body.usernameOrEmail as string) || ''
+      });
+    }
+
+    const { usernameOrEmail, password, rememberMe } = parsed.data;
+
+    const result = await DoctorAuthService.validateDoctor(usernameOrEmail, password);
+
+    if (!result.success) {
+      return res.status(401).render('doctor/login', {
+        title: 'تسجيل دخول الكادر الطبي - دنتل سيتي',
+        returnUrl: (req.query.returnUrl as string) || '/Doctor/Dashboard',
+        errors: [result.errorMessage || 'بيانات الدخول غير صحيحة، يرجى المحاولة مرة أخرى.'],
+        usernameOrEmail
+      });
+    }
+
+    // Set session
+    req.session.doctor = {
+      id: result.doctorId || 1,
+      name: result.doctorName,
+      email: usernameOrEmail.trim(),
+      role: result.role
+    };
+
+    if (rememberMe) {
+      req.session.cookie.maxAge = 7 * 24 * 60 * 60 * 1000; // 7 days
+    } else {
+      req.session.cookie.maxAge = 8 * 60 * 60 * 1000; // 8 hours
+    }
+
+    const returnUrl = (req.query.returnUrl as string) || (req.body.returnUrl as string) || '/Doctor/Dashboard';
+    const safeReturn = (returnUrl.startsWith('/') && !returnUrl.startsWith('//')) ? returnUrl : '/Doctor/Dashboard';
+    return res.redirect(safeReturn);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('Doctor login error:', msg);
+    return res.status(500).render('doctor/login', {
       title: 'تسجيل دخول الكادر الطبي - دنتل سيتي',
       returnUrl: (req.query.returnUrl as string) || '/Doctor/Dashboard',
-      errors: errorMsgs,
+      errors: ['حدث خطأ أثناء معالجة تسجيل الدخول، يرجى المحاولة مرة أخرى لاحقاً.'],
       usernameOrEmail: (req.body.usernameOrEmail as string) || ''
     });
   }
-
-  const { usernameOrEmail, password, rememberMe } = parsed.data;
-
-  const result = await DoctorAuthService.validateDoctor(usernameOrEmail, password);
-
-  if (!result.success) {
-    return res.status(401).render('doctor/login', {
-      title: 'تسجيل دخول الكادر الطبي - دنتل سيتي',
-      returnUrl: (req.query.returnUrl as string) || '/Doctor/Dashboard',
-      errors: [result.errorMessage || 'بيانات الدخول غير صحيحة، يرجى المحاولة مرة أخرى.'],
-      usernameOrEmail
-    });
-  }
-
-  // Set session
-  req.session.doctor = {
-    id: result.doctorId || 1,
-    name: result.doctorName,
-    email: usernameOrEmail.trim(),
-    role: result.role
-  };
-
-  if (rememberMe) {
-    req.session.cookie.maxAge = 7 * 24 * 60 * 60 * 1000; // 7 days
-  } else {
-    req.session.cookie.maxAge = 8 * 60 * 60 * 1000; // 8 hours
-  }
-
-  const returnUrl = (req.query.returnUrl as string) || (req.body.returnUrl as string) || '/Doctor/Dashboard';
-  const safeReturn = (returnUrl.startsWith('/') && !returnUrl.startsWith('//')) ? returnUrl : '/Doctor/Dashboard';
-  return res.redirect(safeReturn);
 });
 
 // POST /Doctor/Logout
@@ -103,7 +114,8 @@ doctorRoutes.post(['/Doctor/Dashboard', '/doctor/dashboard'], requireDoctorAuth,
   const handler = (req.query.handler as string) || (req.body.handler as string);
   const isAjax = req.xhr || req.headers['x-requested-with'] === 'XMLHttpRequest' || req.headers.accept?.includes('application/json');
 
-  switch (handler) {
+  try {
+    switch (handler) {
     case 'ChangePassword': {
       const parsed = ChangePasswordSchema.safeParse(req.body);
       if (!parsed.success) {
@@ -358,4 +370,13 @@ doctorRoutes.post(['/Doctor/Dashboard', '/doctor/dashboard'], requireDoctorAuth,
       return res.redirect('/Doctor/Dashboard');
     }
   }
+} catch (err: unknown) {
+  const msg = err instanceof Error ? err.message : String(err);
+  console.error(`[CRITICAL] Error in Dashboard action (${handler}):`, msg);
+  if (isAjax) {
+    return res.status(500).json({ success: false, message: 'حدث خطأ في تنفيذ العملية، يرجى إعادة المحاولة لاحقاً.' });
+  }
+  req.session.flashMessage = { type: 'danger', text: 'حدث خطأ أثناء معالجة العملية.' };
+  return res.redirect('/Doctor/Dashboard');
+}
 });
