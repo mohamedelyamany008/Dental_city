@@ -9,7 +9,7 @@ dist/
 build/
 bin/
 obj/
-views/
+/views/
 publish-monsterasp/
 publish-monsterasp.zip
 logs/*.log
