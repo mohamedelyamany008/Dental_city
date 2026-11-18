@@ -1,5 +1,5 @@
 # ملف الكود البرمجي الشامل لمشروع مركز دينتال سيتي (Dental City)
-> **تاريخ التجميع:** ١٨‏/١١‏/٢٠٢٦، ١:٣٤:٣٨ ص
+> **تاريخ التجميع:** ١٨‏/١١‏/٢٠٢٦، ٣:١٩:٣٩ ص
 > **البيئة:** Node.js (TypeScript) + Express + EJS + Supabase (PostgreSQL)
 > **ملاحظة:** تم تجميع كل ملفات المشروع البرمجية في هذا المستند للعرض والمراجعة والنسخ بسهولة دون المساس أو التعديل بأي من الملفات الأصلية.
 
@@ -2491,8 +2491,8 @@ export class WhatsAppNotificationService {
 ### القالب الرئيسي (main.ejs)
 
 - **المسار:** `Dental city/src/views/layouts/main.ejs`
-- **عدد الأسطر:** 105 سطر
-- **الحجم:** 5.7 KB
+- **عدد الأسطر:** 107 سطر
+- **الحجم:** 5.8 KB
 
 ````html
 <!DOCTYPE html>
@@ -2500,6 +2500,8 @@ export class WhatsAppNotificationService {
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Google Search Console Verification -->
+    <meta name="google-site-verification" content="ksbPfMd4SbyfMbuUp48J56MgLm4dj1IsR5IKd7-bdfU" />
     <title><%= typeof title !== 'undefined' ? title : 'مركز دينتال سيتي لطب وجراحة الأسنان' %></title>
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="/images/logo.png" />
