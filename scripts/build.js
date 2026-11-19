@@ -53,8 +53,8 @@ try {
     fs.cpSync(srcViews, rootViews, { recursive: true, force: true });
   }
 
-  // Ensure root public exists
-  if (fs.existsSync(srcPublic) && !fs.existsSync(rootPublic)) {
+  // Always synchronize public assets to root public
+  if (fs.existsSync(srcPublic)) {
     fs.mkdirSync(rootPublic, { recursive: true });
     fs.cpSync(srcPublic, rootPublic, { recursive: true, force: true });
   }

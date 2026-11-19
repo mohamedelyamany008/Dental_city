@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Google Search Console Verification -->
+    <meta name="google-site-verification" content="ksbPfMd4SbyfMbuUp48J56MgLm4dj1IsR5IKd7-bdfU" />
+    <title><%= typeof title !== 'undefined' ? title : 'لوحة التحكم - مركز دينتال سيتي' %></title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="/images/logo.png" />
+    <link rel="shortcut icon" type="image/png" href="/images/logo.png" />
+    <link rel="apple-touch-icon" href="/images/logo.png" />
+    
+    <!-- CSS Libraries -->
+    <link rel="stylesheet" href="/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+    <link rel="stylesheet" href="/css/site.css" />
+    <link rel="stylesheet" href="/css/dental_city.styles.css" />
+    <link rel="stylesheet" href="/css/sidebar.css" />
+</head>
+<body class="dashboard-body">
+    <div class="dashboard-layout-wrapper">
+        <!-- Reusable RTL Sidebar Partial -->
+        <%- include('../partials/sidebar') %>
+
+        <!-- Main Dashboard Content Column -->
+        <div class="dashboard-main-content" id="mainContentArea">
+            <!-- Mobile Topbar with Hamburger Toggle -->
+            <header class="dashboard-mobile-header d-lg-none">
+                <div class="d-flex align-items-center gap-2">
+                    <img src="/images/logo.png" alt="Dental City" height="34" class="rounded-2 shadow-sm" onerror="this.onerror=null;this.src='/images/logo.png.jpg';" />
+                    <span class="fw-bold text-dark fs-6">مركز <span class="text-primary">دينتال سيتي</span></span>
+                </div>
+                <button type="button" class="btn btn-outline-primary btn-sm px-2 py-1 rounded-3" id="sidebarMobileToggle" title="فتح القائمة الجانبية">
+                    <i class="bi bi-list fs-5"></i>
+                </button>
+            </header>
+
+            <!-- Desktop Sticky Top Header -->
+            <header class="dashboard-topbar d-none d-lg-flex">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1 rounded-pill">
+                        <i class="bi bi-hospital me-1"></i> فرع المركز الرئيسي
+                    </span>
+                    <span class="text-muted small">|</span>
+                    <span class="text-muted small fw-medium">
+                        <i class="bi bi-calendar-event me-1"></i>
+                        <%= new Date().toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) %>
+                    </span>
+                </div>
+
+                <div class="d-flex align-items-center gap-3">
+                    <a href="/Appointments/Book" class="btn btn-primary btn-sm px-3 rounded-pill fw-semibold">
+                        <i class="bi bi-calendar2-plus me-1"></i> حجز موعد جديد
+                    </a>
+
+                    <div class="dropdown">
+                        <button class="btn btn-light border btn-sm rounded-pill px-3 dropdown-toggle d-flex align-items-center gap-2" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-person-circle text-primary"></i>
+                            <span class="fw-semibold text-dark"><%= (typeof user !== 'undefined' && user && user.name) ? user.name : 'د. حازم حجاج' %></span>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 rounded-3 mt-1 py-2 text-end">
+                            <li><a class="dropdown-item py-2" href="/Doctor/Dashboard"><i class="bi bi-speedometer2 text-primary me-2"></i>لوحة التحكم</a></li>
+                            <li><a class="dropdown-item py-2" href="/Appointments/Book"><i class="bi bi-calendar2-plus text-success me-2"></i>حجز موعد</a></li>
+                            <li><a class="dropdown-item py-2" href="/"><i class="bi bi-globe2 text-secondary me-2"></i>الموقع العام</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item text-danger py-2" href="/Doctor/Logout"><i class="bi bi-box-arrow-left me-2"></i>تسجيل الخروج</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Dashboard Inner Content Container -->
+            <main class="dashboard-inner-container">
+                <!-- Flash Messages Banner -->
+                <% if (typeof flashMessage !== 'undefined' && flashMessage) { %>
+                    <div class="alert alert-<%= flashMessage.type %> alert-dismissible fade show small d-flex align-items-center justify-content-between mb-4 shadow-sm border-0 rounded-3" role="alert">
+                        <div>
+                            <i class="bi <%= flashMessage.type === 'success' ? 'bi-check-circle-fill' : 'bi-exclamation-triangle-fill' %> me-2"></i>
+                            <%= flashMessage.text %>
+                        </div>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                <% } %>
+
+                <%- body %>
+            </main>
+
+            <!-- Dashboard Footer -->
+            <footer class="dashboard-footer">
+                <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-2">
+                    <div>
+                        <span>&copy; 2026 - مركز دينتال سيتي لطب وجراحة الأسنان. جميع الحقوق محفوظة.</span>
+                    </div>
+                    <div class="d-flex align-items-center gap-3">
+                        <span class="text-secondary small">
+                            <i class="bi bi-telephone-fill text-success me-1"></i> الطوارئ: 01551388988
+                        </span>
+                        <span class="text-muted">|</span>
+                        <a href="/Privacy" class="text-decoration-none text-muted small">سياسة الخصوصية</a>
+                    </div>
+                </div>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="/lib/jquery/dist/jquery.min.js"></script>
+    <script src="/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/site.js"></script>
+    <script src="/js/sidebar.js"></script>
+</body>
+</html>

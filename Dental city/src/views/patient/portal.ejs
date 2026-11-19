@@ -1,0 +1,231 @@
+<div class="patient-portal-wrapper">
+    <!-- Welcome Header Banner -->
+    <div class="card border-0 rounded-4 shadow-sm p-4 mb-4" style="background: linear-gradient(135deg, #0284c7 0%, #0d9488 100%); color: white;">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+            <div>
+                <span class="badge bg-white bg-opacity-25 text-white px-3 py-1 rounded-pill fw-semibold mb-2">
+                    <i class="bi bi-person-heart me-1"></i> أهلاً بك في ملفك الطبي الإلكتروني
+                </span>
+                <h2 class="fw-bold mb-1">مرحباً بك في بوابة مريض مركز دينتال سيتي</h2>
+                <p class="mb-0 text-white-50 fs-6">
+                    يمكنك متابعة مواعيدك القادمة، مراجعة روشتاتك الطبية، وحجز موعد جديد بكل سهولة وراحة.
+                </p>
+            </div>
+            <div class="d-flex gap-2">
+                <a href="/Appointments/Book" class="btn btn-light text-primary fw-bold px-3 py-2 rounded-pill shadow-sm">
+                    <i class="bi bi-calendar2-plus me-1"></i> حجز كشف جديد
+                </a>
+                <a href="https://wa.me/201551388988" target="_blank" rel="noopener noreferrer" class="btn btn-outline-light px-3 py-2 rounded-pill">
+                    <i class="bi bi-whatsapp me-1"></i> استشارة واتساب
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Stat Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-sm-6 col-xl-3">
+            <div class="card border-0 rounded-4 shadow-sm p-3 bg-white h-100">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="rounded-3 p-3 text-primary" style="background: #e0f2fe; font-size: 1.5rem;">
+                        <i class="bi bi-calendar-check-fill"></i>
+                    </div>
+                    <div>
+                        <div class="text-muted small fw-semibold">المواعيد القادمة</div>
+                        <h4 class="fw-bold text-dark mb-0">1 موعد مؤكد</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-sm-6 col-xl-3">
+            <div class="card border-0 rounded-4 shadow-sm p-3 bg-white h-100">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="rounded-3 p-3 text-success" style="background: #dcfce7; font-size: 1.5rem;">
+                        <i class="bi bi-clock-history"></i>
+                    </div>
+                    <div>
+                        <div class="text-muted small fw-semibold">الزيارات السابقة</div>
+                        <h4 class="fw-bold text-dark mb-0">3 زيارات</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-sm-6 col-xl-3">
+            <div class="card border-0 rounded-4 shadow-sm p-3 bg-white h-100">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="rounded-3 p-3 text-info" style="background: #ccfbf1; font-size: 1.5rem;">
+                        <i class="bi bi-file-earmark-medical-fill"></i>
+                    </div>
+                    <div>
+                        <div class="text-muted small fw-semibold">الروشتات والتقارير</div>
+                        <h4 class="fw-bold text-dark mb-0">2 روشتة نشطة</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-sm-6 col-xl-3">
+            <div class="card border-0 rounded-4 shadow-sm p-3 bg-white h-100">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="rounded-3 p-3 text-warning" style="background: #fef3c7; font-size: 1.5rem;">
+                        <i class="bi bi-person-badge-fill"></i>
+                    </div>
+                    <div>
+                        <div class="text-muted small fw-semibold">طبيبك المعالج المفضل</div>
+                        <h5 class="fw-bold text-dark mb-0 fs-6">د. حازم حجاج</h5>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Navigation Tabs for Patient Portal -->
+    <div class="card border-0 rounded-4 shadow-sm overflow-hidden mb-4 bg-white">
+        <div class="card-header bg-white border-bottom p-0">
+            <ul class="nav nav-tabs px-3 pt-2 border-0" id="patientPortalTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active fw-bold text-dark" id="p-appointments-tab" data-bs-toggle="tab" data-bs-target="#p-appointments" type="button" role="tab">
+                        <i class="bi bi-calendar-week me-1 text-primary"></i> مواعيدي وحجوزاتي
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link fw-bold text-dark" id="p-records-tab" data-bs-toggle="tab" data-bs-target="#p-records" type="button" role="tab">
+                        <i class="bi bi-file-earmark-medical me-1 text-success"></i> السجل الطبي والروشتات
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link fw-bold text-dark" id="p-profile-tab" data-bs-toggle="tab" data-bs-target="#p-profile" type="button" role="tab">
+                        <i class="bi bi-person-gear me-1 text-info"></i> الملف الشخصي والبيانات
+                    </button>
+                </li>
+            </ul>
+        </div>
+
+        <div class="card-body p-4">
+            <div class="tab-content" id="patientPortalTabsContent">
+                <!-- 1. Appointments Tab -->
+                <div class="tab-pane fade show active" id="p-appointments" role="tabpanel">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="fw-bold text-dark mb-0">سجل مواعيد الكشف وجلسات العلاج</h5>
+                        <a href="/Appointments/Book" class="btn btn-primary btn-sm rounded-pill px-3">
+                            <i class="bi bi-plus-lg me-1"></i> طلب موعد إضافي
+                        </a>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>رقم الحجز</th>
+                                    <th>الطبيب المعالج</th>
+                                    <th>نوع الخدمة</th>
+                                    <th>تاريخ الموعد</th>
+                                    <th>الوقت</th>
+                                    <th>حالة الحجز</th>
+                                    <th>إجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><span class="badge bg-secondary-subtle text-secondary font-monospace">#DC-8849</span></td>
+                                    <td class="fw-semibold">د. حازم حجاج</td>
+                                    <td>كشف واستشارة طبية</td>
+                                    <td>غداً (الأربعاء)</td>
+                                    <td>06:00 م - 06:30 م</td>
+                                    <td><span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 rounded-pill">مؤكد</span></td>
+                                    <td>
+                                        <a href="/Appointments/Confirmation?reference=DC-8849" class="btn btn-outline-primary btn-sm rounded-pill px-2 py-1">
+                                            <i class="bi bi-eye me-1"></i> التفاصيل
+                                        </a>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><span class="badge bg-secondary-subtle text-secondary font-monospace">#DC-7120</span></td>
+                                    <td class="fw-semibold">د. سارة المنشاوي</td>
+                                    <td>تنظيف وتلميع أسنان وإزالة الجير</td>
+                                    <td>10 نوفمبر 2026</td>
+                                    <td>04:00 م - 04:30 م</td>
+                                    <td><span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1 rounded-pill">مكتمل</span></td>
+                                    <td>
+                                        <span class="text-muted small">تم الفحص</span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 2. Records & Prescriptions Tab -->
+                <div class="tab-pane fade" id="p-records" role="tabpanel">
+                    <h5 class="fw-bold text-dark mb-3">السجل الطبي والروشتات الرقمية</h5>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="card border rounded-3 p-3 bg-light h-100">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <h6 class="fw-bold text-dark mb-1"><i class="bi bi-capsule text-primary me-2"></i>روشتة علاجية: جلسة تنظيف وحشو ضرس</h6>
+                                    <span class="badge bg-white text-secondary border">10 نوفمبر 2026</span>
+                                </div>
+                                <p class="text-muted small mb-2">الطبيب: د. سارة المنشاوي (أخصائية حشو وعلاج الجذور)</p>
+                                <ul class="list-unstyled small mb-3">
+                                    <li><i class="bi bi-check2 text-success me-1"></i> مضاد حيوي أموكسيسيلين 500 ملغ (كل 8 ساعات لمدة 5 أيام)</li>
+                                    <li><i class="bi bi-check2 text-success me-1"></i> مسكن كاتفلام 50 ملغ (عند اللزوم بعد الأكل)</li>
+                                    <li><i class="bi bi-check2 text-success me-1"></i> مضمضة فم هكسيدول مرتين يومياً</li>
+                                </ul>
+                                <button type="button" class="btn btn-outline-primary btn-sm rounded-pill w-100 mt-auto" onclick="window.print()">
+                                    <i class="bi bi-printer me-1"></i> طباعة الروشتة الطبية
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="card border rounded-3 p-3 bg-light h-100">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <h6 class="fw-bold text-dark mb-1"><i class="bi bi-card-checklist text-success me-2"></i>خطة العلاج الموصى بها</h6>
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle">محدثة</span>
+                                </div>
+                                <p class="text-muted small mb-2">خطة المتابعة الدورية لصحة الفم واللثة لعام 2026</p>
+                                <div class="progress mb-2" style="height: 8px;">
+                                    <div class="progress-bar bg-success" role="progressbar" style="width: 75%;" aria-valuenow="75" aria-valuemin="0" aria-valuemax="100"></div>
+                                </div>
+                                <span class="small text-muted d-block mb-3">تم إنجاز 3 خطوات علاجية من أصل 4 (75%)</span>
+                                <div class="alert alert-info py-2 px-3 small mb-0 rounded-3">
+                                    <i class="bi bi-info-circle me-1"></i> الجلسة القادمة مخصصة للمتابعة والتبييض النهائي.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. Profile Tab -->
+                <div class="tab-pane fade" id="p-profile" role="tabpanel">
+                    <h5 class="fw-bold text-dark mb-3">الملف الشخصي والبيانات المسجلة</h5>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label text-muted small fw-semibold">الاسم الكامل</label>
+                            <input type="text" class="form-control" value="أحمد محمد علي" readonly />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-muted small fw-semibold">رقم الهاتف المسجل</label>
+                            <input type="text" class="form-control font-monospace" value="01012345678" readonly />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-muted small fw-semibold">البريد الإلكتروني</label>
+                            <input type="email" class="form-control font-monospace" value="patient@dentalcity.clinic" readonly />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-muted small fw-semibold">فصيلة الدم / أي حساسية دوائية</label>
+                            <input type="text" class="form-control" value="O+ (لا توجد حساسية بنسلين)" readonly />
+                        </div>
+                    </div>
+                    <div class="mt-4 pt-3 border-top d-flex gap-2 justify-content-end">
+                        <a href="/Appointments/Book" class="btn btn-primary rounded-pill px-4">
+                            <i class="bi bi-calendar2-plus me-1"></i> حجز كشف جديد الآن
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

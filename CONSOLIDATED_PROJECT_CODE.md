@@ -1,5 +1,5 @@
 # ملف الكود البرمجي الشامل لمشروع مركز دينتال سيتي (Dental City)
-> **تاريخ التجميع:** ١٨‏/١١‏/٢٠٢٦، ٣:١٩:٣٩ ص
+> **تاريخ التجميع:** ١٩‏/١١‏/٢٠٢٦، ٦:٣٥:٢٧ ص
 > **البيئة:** Node.js (TypeScript) + Express + EJS + Supabase (PostgreSQL)
 > **ملاحظة:** تم تجميع كل ملفات المشروع البرمجية في هذا المستند للعرض والمراجعة والنسخ بسهولة دون المساس أو التعديل بأي من الملفات الأصلية.
 
@@ -613,8 +613,8 @@ export type ScheduleUpdateData = z.infer<typeof ScheduleUpdateSchema>;
 ### Authentication & Session Middleware (auth.ts)
 
 - **المسار:** `Dental city/src/middleware/auth.ts`
-- **عدد الأسطر:** 26 سطر
-- **الحجم:** 0.9 KB
+- **عدد الأسطر:** 28 سطر
+- **الحجم:** 1.0 KB
 
 ````typescript
 import { Request, Response, NextFunction } from 'express';
@@ -636,6 +636,8 @@ export function requireDoctorAuth(req: Request, res: Response, next: NextFunctio
 export function injectLocals(req: Request, res: Response, next: NextFunction) {
   res.locals.user = req.session?.doctor || null;
   res.locals.flashMessage = req.session?.flashMessage || null;
+  res.locals.currentPath = req.originalUrl || req.path || '';
+  res.locals.portalType = 'admin';
   if (req.session?.flashMessage) {
     delete req.session.flashMessage;
   }
@@ -694,8 +696,8 @@ indexRoutes.get('/Privacy', (_req: Request, res: Response) => {
 ### Appointments Routes & API (appointments.routes.ts)
 
 - **المسار:** `Dental city/src/routes/appointments.routes.ts`
-- **عدد الأسطر:** 160 سطر
-- **الحجم:** 6.1 KB
+- **عدد الأسطر:** 189 سطر
+- **الحجم:** 7.2 KB
 
 ````typescript
 import { Router, Request, Response } from 'express';
@@ -857,6 +859,35 @@ appointmentRoutes.get(['/Appointments/Confirmation', '/appointments/confirmation
     return res.status(500).render('error', { message: 'حدث خطأ أثناء عرض تأكيد الحجز.' });
   }
 });
+
+// GET /Patient/Portal (and /patient/portal, /Portal, /portal)
+appointmentRoutes.get(['/Patient/Portal', '/patient/portal', '/Portal', '/portal'], async (_req: Request, res: Response) => {
+  try {
+    const doctors = await AppointmentService.getDoctors();
+    const services = AppointmentService.getServices();
+    const emergencyPhone = AppointmentService.getEmergencyPhone();
+    const allBookings = await AppointmentService.getAllBookings();
+
+    return res.render('patient/portal', {
+      title: 'بوابة المريض - مركز دينتال سيتي',
+      layout: 'layouts/dashboard',
+      portalType: 'patient',
+      doctors,
+      services,
+      emergencyPhone,
+      allBookings
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('Patient portal error:', msg);
+    return res.status(500).render('error', { message: 'حدث خطأ أثناء عرض بوابة المريض.' });
+  }
+});
+
+// GET /Patient/Logout
+appointmentRoutes.get(['/Patient/Logout', '/patient/logout'], (_req: Request, res: Response) => {
+  return res.redirect('/');
+});
 ````
 
 ---
@@ -864,8 +895,8 @@ appointmentRoutes.get(['/Appointments/Confirmation', '/appointments/confirmation
 ### Doctor Portal & Dashboard Routes (doctor.routes.ts)
 
 - **المسار:** `Dental city/src/routes/doctor.routes.ts`
-- **عدد الأسطر:** 383 سطر
-- **الحجم:** 16.3 KB
+- **عدد الأسطر:** 385 سطر
+- **الحجم:** 16.4 KB
 
 ````typescript
 import { Router, Request, Response } from 'express';
@@ -965,6 +996,8 @@ doctorRoutes.get(['/Doctor/Dashboard', '/doctor/dashboard'], requireDoctorAuth, 
 
     return res.render('doctor/dashboard', {
       title: 'لوحة التحكم وإدارة العيادة - دينتال سيتي',
+      layout: 'layouts/dashboard',
+      portalType: 'admin',
       doctors,
       services,
       configuredSlots,
@@ -2491,8 +2524,8 @@ export class WhatsAppNotificationService {
 ### القالب الرئيسي (main.ejs)
 
 - **المسار:** `Dental city/src/views/layouts/main.ejs`
-- **عدد الأسطر:** 107 سطر
-- **الحجم:** 5.8 KB
+- **عدد الأسطر:** 112 سطر
+- **الحجم:** 6.1 KB
 
 ````html
 <!DOCTYPE html>
@@ -2534,6 +2567,11 @@ export class WhatsAppNotificationService {
                         <li class="nav-item">
                             <a class="nav-link text-primary fw-semibold" href="/Appointments/Book">
                                 <i class="bi bi-calendar2-plus me-1"></i> حجز موعد
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-dark" href="/Patient/Portal">
+                                <i class="bi bi-person-heart me-1 text-info"></i> بوابة المريض
                             </a>
                         </li>
                         <li class="nav-item">
@@ -3987,8 +4025,8 @@ export class WhatsAppNotificationService {
 ### لوحة تحكم الطبيب والعيادة (dashboard.ejs)
 
 - **المسار:** `Dental city/src/views/doctor/dashboard.ejs`
-- **عدد الأسطر:** 1276 سطر
-- **الحجم:** 70.3 KB
+- **عدد الأسطر:** 1569 سطر
+- **الحجم:** 89.7 KB
 
 ````html
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
@@ -5235,6 +5273,299 @@ export class WhatsAppNotificationService {
         }
     }
 
+    <!-- ================================================================ -->
+    <!-- Management Quick Action Modals (Sidebar Integration)              -->
+    <!-- ================================================================ -->
+
+    <!-- 1. Prescriptions & Dental Labs Modal -->
+    <div class="modal fade" id="prescriptions-modal" tabindex="-1" aria-labelledby="prescriptionsModalLabel" aria-hidden="true" dir="rtl">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg rounded-4">
+                <div class="modal-header border-bottom py-3 bg-light rounded-top-4">
+                    <h5 class="modal-title fw-bold text-dark d-flex align-items-center gap-2" id="prescriptionsModalLabel">
+                        <i class="bi bi-capsule text-primary fs-4"></i> الروشتات الطبية وطلبات معامل التركيبات
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <div class="p-3 border rounded-3 bg-light h-100">
+                                <h6 class="fw-bold text-primary mb-2"><i class="bi bi-file-earmark-medical me-1"></i> تحرير روشتة إلكترونية سريعة</h6>
+                                <p class="text-muted small mb-3">طباعة أو إرسال روشتة دوائية موثقة لمريض المركز مباشرة عبر الواتساب.</p>
+                                <div class="mb-2">
+                                    <label class="form-label small fw-semibold">اختر المريض:</label>
+                                    <select class="form-select form-select-sm">
+                                        <% if (typeof recentBookings !== 'undefined' && recentBookings) { %>
+                                            <% recentBookings.slice(0, 5).forEach(b => { %>
+                                                <option><%= b.patient_name %> (<%= b.reference %>)</option>
+                                            <% }) %>
+                                        <% } %>
+                                    </select>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label small fw-semibold">الأدوية الموصوفة والجرعات:</label>
+                                    <textarea class="form-control form-control-sm" rows="3" placeholder="مثال: مضاد حيوي أوجمنتين 1 جم كل 12 ساعة، مسكن كتافلام..."></textarea>
+                                </div>
+                                <button type="button" class="btn btn-primary btn-sm w-100 rounded-pill" onclick="alert('تم حفظ الروشتة وإتاحتها فورياً في بوابة المريض.')">
+                                    <i class="bi bi-printer me-1"></i> حفظ وطباعة الروشتة
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="p-3 border rounded-3 bg-light h-100">
+                                <h6 class="fw-bold text-secondary mb-2"><i class="bi bi-tools me-1"></i> متابعة طلبات معامل الأسنان (Dental Labs)</h6>
+                                <p class="text-muted small mb-2">تتبع حالات التركيبات، التيجان (Zirconia/E-max)، وأجهزة التقويم.</p>
+                                <ul class="list-group list-group-flush small mb-3">
+                                    <li class="list-group-item d-flex justify-content-between align-items-center bg-transparent px-0">
+                                        <span>تاج زيركونيا (Zirconia Crown) - د. حازم</span>
+                                        <span class="badge bg-warning text-dark">قيد التصنيع</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center bg-transparent px-0">
+                                        <span>طقم أسنان جزئي فينير (Veneers 6 Units)</span>
+                                        <span class="badge bg-info-subtle text-info-emphasis">معمل الماسة</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center bg-transparent px-0">
+                                        <span>جهاز مثبت تقويم شفاف (Clear Retainer)</span>
+                                        <span class="badge bg-success">جاهز للتسليم</span>
+                                    </li>
+                                </ul>
+                                <button type="button" class="btn btn-outline-secondary btn-sm w-100 rounded-pill" onclick="alert('تم فتح سجل التواصل مع المعمل.')">
+                                    <i class="bi bi-plus-circle me-1"></i> إضافة طلب معمل جديد
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. Billing & Finance Modal -->
+    <div class="modal fade" id="finance-modal" tabindex="-1" aria-labelledby="financeModalLabel" aria-hidden="true" dir="rtl">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg rounded-4">
+                <div class="modal-header border-bottom py-3 bg-light rounded-top-4">
+                    <h5 class="modal-title fw-bold text-dark d-flex align-items-center gap-2" id="financeModalLabel">
+                        <i class="bi bi-receipt-cutoff text-success fs-4"></i> الخزينة، الفواتير، وحسابات الدفعات
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="row g-3 mb-3">
+                        <div class="col-sm-4">
+                            <div class="p-3 border rounded-3 bg-success-subtle text-success text-center">
+                                <span class="small fw-semibold d-block">متحصلات الخزينة اليوم</span>
+                                <h4 class="fw-bold my-1">EGP 14,850</h4>
+                                <span class="small text-muted">كاش + إنستاباي + بطاقات</span>
+                            </div>
+                        </div>
+                        <div class="col-sm-4">
+                            <div class="p-3 border rounded-3 bg-primary-subtle text-primary text-center">
+                                <span class="small fw-semibold d-block">إجمالي الفواتير الصادرة</span>
+                                <h4 class="fw-bold my-1"><%= recentBookings ? recentBookings.length : 0 %> فاتورة</h4>
+                                <span class="small text-muted">خلال الشهر الحالي</span>
+                            </div>
+                        </div>
+                        <div class="col-sm-4">
+                            <div class="p-3 border rounded-3 bg-warning-subtle text-warning-emphasis text-center">
+                                <span class="small fw-semibold d-block">دفعات وأقساط مستحقة</span>
+                                <h4 class="fw-bold my-1">EGP 3,200</h4>
+                                <span class="small text-muted">تقويم وزراعة أسنان</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>رقم الفاتورة</th>
+                                    <th>المريض</th>
+                                    <th>الخدمة الطبية</th>
+                                    <th>المبلغ</th>
+                                    <th>طريقة السداد</th>
+                                    <th>الحالة</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td class="font-monospace fw-bold">#INV-2026-089</td>
+                                    <td>أحمد محمود السيد</td>
+                                    <td>تنظيف وتلميع الأسنان</td>
+                                    <td class="fw-bold">450 ج.م</td>
+                                    <td>كاش (نقد)</td>
+                                    <td><span class="badge bg-success">مدفوع</span></td>
+                                </tr>
+                                <tr>
+                                    <td class="font-monospace fw-bold">#INV-2026-088</td>
+                                    <td>سارة إبراهيم علي</td>
+                                    <td>حشو ليزر تجميلي عالي الدقة</td>
+                                    <td class="fw-bold">850 ج.م</td>
+                                    <td>InstaPay</td>
+                                    <td><span class="badge bg-success">مدفوع</span></td>
+                                </tr>
+                                <tr>
+                                    <td class="font-monospace fw-bold">#INV-2026-087</td>
+                                    <td>محمد عبد العزيز</td>
+                                    <td>دفعة أولى - تقويم الأسنان</td>
+                                    <td class="fw-bold">3,500 ج.م</td>
+                                    <td>فيزا / بطاقة بنكية</td>
+                                    <td><span class="badge bg-primary">مؤكد</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. Inventory Modal -->
+    <div class="modal fade" id="inventory-modal" tabindex="-1" aria-labelledby="inventoryModalLabel" aria-hidden="true" dir="rtl">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg rounded-4">
+                <div class="modal-header border-bottom py-3 bg-light rounded-top-4">
+                    <h5 class="modal-title fw-bold text-dark d-flex align-items-center gap-2" id="inventoryModalLabel">
+                        <i class="bi bi-box-seam text-info fs-4"></i> مخزن المستلزمات الطبية ومواد الحشو
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>المادة الطبية / الصنف</th>
+                                    <th>التصنيف</th>
+                                    <th>الكمية المتاحة</th>
+                                    <th>تاريخ الصلاحية</th>
+                                    <th>حالة المخزون</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td class="fw-semibold">بنج موضعي (Articaine 4% Dental)</td>
+                                    <td>تخدير موضعي</td>
+                                    <td class="fw-bold font-monospace">48 كربولة</td>
+                                    <td>12/2027</td>
+                                    <td><span class="badge bg-success">آمن</span></td>
+                                </tr>
+                                <tr>
+                                    <td class="fw-semibold">حشوات تجميلية كومبوزيت (3M Filtek)</td>
+                                    <td>حشو تجميلي</td>
+                                    <td class="fw-bold font-monospace">8 محاقن</td>
+                                    <td>08/2028</td>
+                                    <td><span class="badge bg-success">آمن</span></td>
+                                </tr>
+                                <tr>
+                                    <td class="fw-semibold">أكواب وقفازات طبية معقمة (Latex-free)</td>
+                                    <td>مستهلكات عامة</td>
+                                    <td class="fw-bold font-monospace">3 علب</td>
+                                    <td>05/2026</td>
+                                    <td><span class="badge bg-warning text-dark">أوشك على النفاد</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. Reports Modal -->
+    <div class="modal fade" id="reports-modal" tabindex="-1" aria-labelledby="reportsModalLabel" aria-hidden="true" dir="rtl">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg rounded-4">
+                <div class="modal-header border-bottom py-3 bg-light rounded-top-4">
+                    <h5 class="modal-title fw-bold text-dark d-flex align-items-center gap-2" id="reportsModalLabel">
+                        <i class="bi bi-graph-up-arrow text-primary fs-4"></i> التقارير والإحصائيات التحليلية
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4 text-center">
+                    <div class="row g-3 mb-4 text-start">
+                        <div class="col-md-4">
+                            <div class="p-3 border rounded-3 bg-light text-center">
+                                <h6 class="text-muted small">معدل رضا المرضى</h6>
+                                <h3 class="fw-bold text-success mb-0">98.5%</h3>
+                                <small class="text-muted">بناءً على 120 تقييماً</small>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="p-3 border rounded-3 bg-light text-center">
+                                <h6 class="text-muted small">أكثر الخدمات طلباً</h6>
+                                <h3 class="fw-bold text-primary mb-0">حشو وتجميل</h3>
+                                <small class="text-muted">42% من الحجوزات</small>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="p-3 border rounded-3 bg-light text-center">
+                                <h6 class="text-muted small">الحجوزات الإلكترونية</h6>
+                                <h3 class="fw-bold text-dark mb-0">100%</h3>
+                                <small class="text-muted">مسجلة عبر المنظومة</small>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-primary rounded-pill px-4" onclick="window.print()">
+                        <i class="bi bi-printer me-1"></i> طباعة التقرير الشامل لعيادات دينتال سيتي
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 5. Staff & Roles Modal -->
+    <div class="modal fade" id="staff-modal" tabindex="-1" aria-labelledby="staffModalLabel" aria-hidden="true" dir="rtl">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg rounded-4">
+                <div class="modal-header border-bottom py-3 bg-light rounded-top-4">
+                    <h5 class="modal-title fw-bold text-dark d-flex align-items-center gap-2" id="staffModalLabel">
+                        <i class="bi bi-people-fill text-dark fs-4"></i> الموظفين وإدارة الصلاحيات
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>الاسم</th>
+                                    <th>الدور الوظيفي</th>
+                                    <th>البريد / اسم الدخول</th>
+                                    <th>الصلاحيات</th>
+                                    <th>الحالة</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td class="fw-bold">د. حازم حجاج</td>
+                                    <td><span class="badge bg-primary">مدير طبي / أخصائي</span></td>
+                                    <td>admin</td>
+                                    <td>كامل الصلاحيات (Admin)</td>
+                                    <td><span class="badge bg-success">نشط</span></td>
+                                </tr>
+                                <tr>
+                                    <td class="fw-bold">د. سارة إبراهيم</td>
+                                    <td><span class="badge bg-info-subtle text-info-emphasis">طبيبة أسنان</span></td>
+                                    <td>dr_sara</td>
+                                    <td>الكشف والملفات الطبية والروشتات</td>
+                                    <td><span class="badge bg-success">نشط</span></td>
+                                </tr>
+                                <tr>
+                                    <td class="fw-bold">أ/ مروة محمود</td>
+                                    <td><span class="badge bg-secondary">موظفة استقبال</span></td>
+                                    <td>reception</td>
+                                    <td>تأكيد الحجوزات والخزينة</td>
+                                    <td><span class="badge bg-success">نشط</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     function filterBookingsTable() {
         const query = document.getElementById("bookingSearchInput").value.toLowerCase();
         const rows = document.querySelectorAll("#bookingsTable tbody tr");
@@ -5726,8 +6057,8 @@ try {
     fs.cpSync(srcViews, rootViews, { recursive: true, force: true });
   }
 
-  // Ensure root public exists
-  if (fs.existsSync(srcPublic) && !fs.existsSync(rootPublic)) {
+  // Always synchronize public assets to root public
+  if (fs.existsSync(srcPublic)) {
     fs.mkdirSync(rootPublic, { recursive: true });
     fs.cpSync(srcPublic, rootPublic, { recursive: true, force: true });
   }

@@ -157,3 +157,32 @@ appointmentRoutes.get(['/Appointments/Confirmation', '/appointments/confirmation
     return res.status(500).render('error', { message: 'حدث خطأ أثناء عرض تأكيد الحجز.' });
   }
 });
+
+// GET /Patient/Portal (and /patient/portal, /Portal, /portal)
+appointmentRoutes.get(['/Patient/Portal', '/patient/portal', '/Portal', '/portal'], async (_req: Request, res: Response) => {
+  try {
+    const doctors = await AppointmentService.getDoctors();
+    const services = AppointmentService.getServices();
+    const emergencyPhone = AppointmentService.getEmergencyPhone();
+    const allBookings = await AppointmentService.getAllBookings();
+
+    return res.render('patient/portal', {
+      title: 'بوابة المريض - مركز دينتال سيتي',
+      layout: 'layouts/dashboard',
+      portalType: 'patient',
+      doctors,
+      services,
+      emergencyPhone,
+      allBookings
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('Patient portal error:', msg);
+    return res.status(500).render('error', { message: 'حدث خطأ أثناء عرض بوابة المريض.' });
+  }
+});
+
+// GET /Patient/Logout
+appointmentRoutes.get(['/Patient/Logout', '/patient/logout'], (_req: Request, res: Response) => {
+  return res.redirect('/');
+});

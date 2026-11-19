@@ -95,6 +95,8 @@ doctorRoutes.get(['/Doctor/Dashboard', '/doctor/dashboard'], requireDoctorAuth, 
 
     return res.render('doctor/dashboard', {
       title: 'لوحة التحكم وإدارة العيادة - دينتال سيتي',
+      layout: 'layouts/dashboard',
+      portalType: 'admin',
       doctors,
       services,
       configuredSlots,

@@ -17,6 +17,8 @@ export function requireDoctorAuth(req: Request, res: Response, next: NextFunctio
 export function injectLocals(req: Request, res: Response, next: NextFunction) {
   res.locals.user = req.session?.doctor || null;
   res.locals.flashMessage = req.session?.flashMessage || null;
+  res.locals.currentPath = req.originalUrl || req.path || '';
+  res.locals.portalType = 'admin';
   if (req.session?.flashMessage) {
     delete req.session.flashMessage;
   }
