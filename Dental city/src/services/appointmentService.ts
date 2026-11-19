@@ -49,8 +49,67 @@ export class AppointmentService {
     'علاج أمراض والتهابات اللثة'
   ];
 
-  // In-memory slot templates
-  private static configuredSlots: AppointmentSlot[] = AppointmentService.generateStandardSlots(30);
+  // ============================================================================
+  // Two-Shift Schedule Configuration (Mandatory 1-Hour Intervals)
+  // Morning Shift: 09:00 AM - 12:00 PM | Evening Shift: 12:00 PM - 06:00 PM
+  // ============================================================================
+  public static readonly MORNING_SHIFT_HOURS = '09:00 ص - 12:00 م';
+  public static readonly EVENING_SHIFT_HOURS = '12:00 م - 06:00 م';
+  public static readonly FULL_DAY_HOURS = '09:00 ص - 12:00 م | 12:00 م - 06:00 م';
+
+  // Fixed 1-hour interval slots for Morning Shift (9 AM - 12 PM)
+  public static readonly MORNING_SLOTS: string[] = [
+    '09:00 ص',
+    '10:00 ص',
+    '11:00 ص'
+  ];
+
+  // Fixed 1-hour interval slots for Evening Shift (12 PM - 6 PM)
+  public static readonly EVENING_SLOTS: string[] = [
+    '12:00 م',
+    '01:00 م',
+    '02:00 م',
+    '03:00 م',
+    '04:00 م',
+    '05:00 م'
+  ];
+
+  // Combined 1-hour interval slots (9 slots per full working day)
+  public static readonly ALL_SHIFT_SLOTS: string[] = [
+    ...AppointmentService.MORNING_SLOTS,
+    ...AppointmentService.EVENING_SLOTS
+  ];
+
+  /**
+   * Generates Two-Shift slots with mandatory 1-hour interval between appointments.
+   * Morning: 09:00 AM - 12:00 PM | Evening: 12:00 PM - 06:00 PM
+   */
+  public static getTwoShiftSlots(filterSlots?: string[]): AppointmentSlot[] {
+    const filterSet = (filterSlots && filterSlots.length > 0)
+      ? new Set(filterSlots.map(s => this.normalizeTimeSlot(s)))
+      : null;
+
+    const morning = this.MORNING_SLOTS
+      .filter(s => !filterSet || filterSet.has(this.normalizeTimeSlot(s)))
+      .map(time => ({
+        time: this.normalizeTimeSlot(time),
+        period: 'صباحي' as const,
+        isAvailable: true
+      }));
+
+    const evening = this.EVENING_SLOTS
+      .filter(s => !filterSet || filterSet.has(this.normalizeTimeSlot(s)))
+      .map(time => ({
+        time: this.normalizeTimeSlot(time),
+        period: 'مسائي' as const,
+        isAvailable: true
+      }));
+
+    return [...morning, ...evening];
+  }
+
+  // In-memory slot templates initialized with the two-shift 1-hour interval schedule
+  private static configuredSlots: AppointmentSlot[] = AppointmentService.getTwoShiftSlots();
 
   // In-memory recent bookings for instant lookup
   private static recentBookings: Map<string, Booking> = new Map();
@@ -68,38 +127,9 @@ export class AppointmentService {
     this.allDoctorsCache = null;
   }
 
-  /**
-   * Generates morning (09:00 AM to 12:00 PM) and afternoon (12:00 PM to 06:00 PM) slots
-   */
-  public static generateStandardSlots(intervalMinutes: number = 30): AppointmentSlot[] {
-    const validInterval = (intervalMinutes === 15 || intervalMinutes === 30) ? intervalMinutes : 30;
-    const slots: AppointmentSlot[] = [];
-
-    // 1. Morning Period: 09:00 AM to 12:00 PM
-    let currentMin = 9 * 60; // 09:00 AM
-    const morningEnd = 12 * 60; // 12:00 PM
-    while (currentMin < morningEnd) {
-      slots.push({
-        time: this.formatMinutesToArabic(currentMin),
-        period: 'صباحي',
-        isAvailable: true
-      });
-      currentMin += validInterval;
-    }
-
-    // 2. Afternoon Period: 12:00 PM to 06:00 PM
-    currentMin = 12 * 60; // 12:00 PM
-    const afternoonEnd = 18 * 60; // 06:00 PM
-    while (currentMin <= afternoonEnd) {
-      slots.push({
-        time: this.formatMinutesToArabic(currentMin),
-        period: 'مسائي',
-        isAvailable: true
-      });
-      currentMin += validInterval;
-    }
-
-    return slots;
+  // Backward-compatible alias
+  public static generateStandardSlots(_intervalMinutes?: number): AppointmentSlot[] {
+    return this.getTwoShiftSlots();
   }
 
   public static formatMinutesToArabic(totalMinutes: number): string {
@@ -126,6 +156,15 @@ export class AppointmentService {
           t = t.replace('?', 'م');
         }
       }
+    }
+    const m = t.match(/^(\d{1,2}):(\d{2})\s*([صمAMPMampm]+)?$/);
+    if (m) {
+      const hh = m[1].padStart(2, '0');
+      const mm = m[2];
+      let p = (m[3] || '').trim();
+      if (p.toUpperCase() === 'AM') p = 'ص';
+      if (p.toUpperCase() === 'PM') p = 'م';
+      return `${hh}:${mm}${p ? ' ' + p : ''}`.trim();
     }
     return t;
   }
@@ -374,29 +413,46 @@ export class AppointmentService {
       return { isWorkingDay: false, offDayReason: 'تاريخ غير صالح', slots: [] };
     }
 
-    // Check Day of Week
+    // Check Day of Week against active working days
     const dayOfWeek = date.getDay(); // 0 = Sunday, 1 = Monday, ..., 5 = Friday, 6 = Saturday
-    const offDay = doctor.OffDays ?? 5;
+    const dayNames = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+    const currentDayName = dayNames[dayOfWeek];
 
-    if (dayOfWeek === offDay) {
-      const dayNames = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+    let isWorkingDay = true;
+    if (doctor.WorkingDays && doctor.WorkingDays.trim() !== '') {
+      const wDays = doctor.WorkingDays;
+      if (wDays.includes('السبت - الخميس') || wDays.includes('الجمعة إجازة')) {
+        isWorkingDay = (dayOfWeek !== 5); // Friday off
+      } else {
+        isWorkingDay = wDays.includes(currentDayName) || 
+                       (currentDayName === 'الإثنين' && wDays.includes('الاثنين'));
+      }
+    } else if (doctor.OffDays !== undefined && doctor.OffDays !== null) {
+      isWorkingDay = (dayOfWeek !== doctor.OffDays);
+    }
+
+    if (!isWorkingDay) {
       return {
         isWorkingDay: false,
-        offDayReason: `يوم ${dayNames[dayOfWeek]} هو يوم الإجازة الأسبوعية المعتمدة لـ (${doctor.name}).`,
+        offDayReason: `يوم ${currentDayName} غير مدرج ضمن جدول العمل المعتمد لـ (${doctor.name}). يرجى اختيار أحد أيام العمل المتاحة.`,
         slots: []
       };
     }
 
-    // Base slots for the doctor
+    // Base slots for the doctor adhering to the Two-Shift 1-hour interval model
     let baseSlotTimes = doctor.AvaliableSlots || [];
-    if (baseSlotTimes.length === 0) {
-      baseSlotTimes = this.configuredSlots.map(s => s.time);
-    }
+    const normalizedShiftSlots = new Set(this.ALL_SHIFT_SLOTS.map(s => this.normalizeTimeSlot(s)));
+    const validDoctorSlots = baseSlotTimes
+      .map(s => this.normalizeTimeSlot(s))
+      .filter(s => normalizedShiftSlots.has(s));
+
+    // If doctor has defined valid 1-hour shift slots use them, otherwise use standard two-shift slots
+    const activeSlotsList = validDoctorSlots.length > 0 ? validDoctorSlots : this.ALL_SHIFT_SLOTS;
 
     // Retrieve booked slots directly from Supabase Bookings with zero caching
     const bookedTimes = await this.getBookedSlotsForDoctorAndDate(doctorId, dateString);
 
-    const slots: AppointmentSlot[] = baseSlotTimes.map(time => {
+    const slots: AppointmentSlot[] = activeSlotsList.map(time => {
       const normalizedTime = this.normalizeTimeSlot(time);
       const isBooked =
         bookedTimes.has(time.trim()) ||

@@ -1,14 +1,21 @@
+<%
+  const bookingsList = (typeof allBookings !== 'undefined' && allBookings && Array.isArray(allBookings)) ? allBookings : [];
+  const confirmedCount = bookingsList.filter(b => b.status === 'مؤكد').length;
+  const pendingCount = bookingsList.filter(b => b.status === 'قيد الانتظار' || b.status === 'pending' || !b.status).length;
+  const completedCount = bookingsList.filter(b => b.status === 'مكتمل').length;
+%>
+
 <div class="patient-portal-wrapper">
     <!-- Welcome Header Banner -->
     <div class="card border-0 rounded-4 shadow-sm p-4 mb-4" style="background: linear-gradient(135deg, #0284c7 0%, #0d9488 100%); color: white;">
         <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
             <div>
                 <span class="badge bg-white bg-opacity-25 text-white px-3 py-1 rounded-pill fw-semibold mb-2">
-                    <i class="bi bi-person-heart me-1"></i> أهلاً بك في ملفك الطبي الإلكتروني
+                    <i class="bi bi-shield-check me-1"></i> الإدارة الحصرية لمواعيد المرضى
                 </span>
-                <h2 class="fw-bold mb-1">مرحباً بك في بوابة مريض مركز دينتال سيتي</h2>
+                <h2 class="fw-bold mb-1">بوابة المريض وإدارة الحجوزات الطبية</h2>
                 <p class="mb-0 text-white-50 fs-6">
-                    يمكنك متابعة مواعيدك القادمة، مراجعة روشتاتك الطبية، وحجز موعد جديد بكل سهولة وراحة.
+                    تم تخصيص هذا القسم حصرياً لإدارة وتأكيد مواعيدك، فحص التاريخ الطبي، ومتابعة جلسات علاج الأسنان بنظام الورديتين.
                 </p>
             </div>
             <div class="d-flex gap-2">
@@ -31,8 +38,8 @@
                         <i class="bi bi-calendar-check-fill"></i>
                     </div>
                     <div>
-                        <div class="text-muted small fw-semibold">المواعيد القادمة</div>
-                        <h4 class="fw-bold text-dark mb-0">1 موعد مؤكد</h4>
+                        <div class="text-muted small fw-semibold">إجمالي الحجوزات</div>
+                        <h4 class="fw-bold text-dark mb-0"><%= bookingsList.length %> حجز</h4>
                     </div>
                 </div>
             </div>
@@ -42,25 +49,11 @@
             <div class="card border-0 rounded-4 shadow-sm p-3 bg-white h-100">
                 <div class="d-flex align-items-center gap-3">
                     <div class="rounded-3 p-3 text-success" style="background: #dcfce7; font-size: 1.5rem;">
-                        <i class="bi bi-clock-history"></i>
+                        <i class="bi bi-check-circle-fill"></i>
                     </div>
                     <div>
-                        <div class="text-muted small fw-semibold">الزيارات السابقة</div>
-                        <h4 class="fw-bold text-dark mb-0">3 زيارات</h4>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-sm-6 col-xl-3">
-            <div class="card border-0 rounded-4 shadow-sm p-3 bg-white h-100">
-                <div class="d-flex align-items-center gap-3">
-                    <div class="rounded-3 p-3 text-info" style="background: #ccfbf1; font-size: 1.5rem;">
-                        <i class="bi bi-file-earmark-medical-fill"></i>
-                    </div>
-                    <div>
-                        <div class="text-muted small fw-semibold">الروشتات والتقارير</div>
-                        <h4 class="fw-bold text-dark mb-0">2 روشتة نشطة</h4>
+                        <div class="text-muted small fw-semibold">المواعيد المؤكدة</div>
+                        <h4 class="fw-bold text-dark mb-0"><%= confirmedCount %> موعد</h4>
                     </div>
                 </div>
             </div>
@@ -70,11 +63,25 @@
             <div class="card border-0 rounded-4 shadow-sm p-3 bg-white h-100">
                 <div class="d-flex align-items-center gap-3">
                     <div class="rounded-3 p-3 text-warning" style="background: #fef3c7; font-size: 1.5rem;">
-                        <i class="bi bi-person-badge-fill"></i>
+                        <i class="bi bi-hourglass-split"></i>
                     </div>
                     <div>
-                        <div class="text-muted small fw-semibold">طبيبك المعالج المفضل</div>
-                        <h5 class="fw-bold text-dark mb-0 fs-6">د. حازم حجاج</h5>
+                        <div class="text-muted small fw-semibold">قيد الانتظار</div>
+                        <h4 class="fw-bold text-dark mb-0"><%= pendingCount %> حجز</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-sm-6 col-xl-3">
+            <div class="card border-0 rounded-4 shadow-sm p-3 bg-white h-100">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="rounded-3 p-3 text-info" style="background: #ccfbf1; font-size: 1.5rem;">
+                        <i class="bi bi-clock-history"></i>
+                    </div>
+                    <div>
+                        <div class="text-muted small fw-semibold">جلسات مكتملة</div>
+                        <h4 class="fw-bold text-dark mb-0"><%= completedCount %> كشف</h4>
                     </div>
                 </div>
             </div>
@@ -87,7 +94,7 @@
             <ul class="nav nav-tabs px-3 pt-2 border-0" id="patientPortalTabs" role="tablist">
                 <li class="nav-item" role="presentation">
                     <button class="nav-link active fw-bold text-dark" id="p-appointments-tab" data-bs-toggle="tab" data-bs-target="#p-appointments" type="button" role="tab">
-                        <i class="bi bi-calendar-week me-1 text-primary"></i> مواعيدي وحجوزاتي
+                        <i class="bi bi-calendar-check-fill me-1 text-primary"></i> إدارة الحجوزات والمواعيد (<%= bookingsList.length %>)
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
@@ -105,53 +112,122 @@
 
         <div class="card-body p-4">
             <div class="tab-content" id="patientPortalTabsContent">
-                <!-- 1. Appointments Tab -->
+                <!-- 1. Appointments Management Tab (Exclusive Home of Appointments) -->
                 <div class="tab-pane fade show active" id="p-appointments" role="tabpanel">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h5 class="fw-bold text-dark mb-0">سجل مواعيد الكشف وجلسات العلاج</h5>
-                        <a href="/Appointments/Book" class="btn btn-primary btn-sm rounded-pill px-3">
-                            <i class="bi bi-plus-lg me-1"></i> طلب موعد إضافي
-                        </a>
+                    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+                        <div>
+                            <h5 class="fw-bold text-dark mb-1">سجل وإدارة حجوزات الكشف الطبي</h5>
+                            <p class="text-muted small mb-0">
+                                يمكنك البحث، متابعة حالة الحجز، طباعة الكشف، أو إلغاء الموعد مباشرة.
+                            </p>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <div style="min-width: 250px;">
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                                    <input type="text" class="form-control" id="patientBookingSearch" onkeyup="filterPatientBookings()" placeholder="ابحث بالاسم، الهاتف، أو الرمز..." />
+                                </div>
+                            </div>
+                            <a href="/Appointments/Book" class="btn btn-primary btn-sm rounded-pill px-3 flex-shrink-0">
+                                <i class="bi bi-plus-lg me-1"></i> حجز كشف جديد
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Status Filter Pills -->
+                    <div class="d-flex flex-wrap gap-2 mb-3">
+                        <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill active" onclick="filterByStatus('all', this)">الكل (<%= bookingsList.length %>)</button>
+                        <button type="button" class="btn btn-sm btn-outline-success rounded-pill" onclick="filterByStatus('مؤكد', this)">مؤكد (<%= confirmedCount %>)</button>
+                        <button type="button" class="btn btn-sm btn-outline-warning rounded-pill" onclick="filterByStatus('قيد الانتظار', this)">قيد الانتظار (<%= pendingCount %>)</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary rounded-pill" onclick="filterByStatus('مكتمل', this)">مكتمل (<%= completedCount %>)</button>
+                        <button type="button" class="btn btn-sm btn-outline-danger rounded-pill" onclick="filterByStatus('ملغي', this)">ملغي (<%= bookingsList.filter(b => b.status === 'ملغي').length %>)</button>
                     </div>
 
                     <div class="table-responsive">
-                        <table class="table table-hover align-middle">
+                        <table class="table table-hover align-middle mb-0" id="patientBookingsTable">
                             <thead class="table-light">
                                 <tr>
-                                    <th>رقم الحجز</th>
+                                    <th>الرقم المرجعي</th>
+                                    <th>المريض</th>
+                                    <th>الهاتف</th>
                                     <th>الطبيب المعالج</th>
-                                    <th>نوع الخدمة</th>
+                                    <th>الخدمة المطلوبة</th>
                                     <th>تاريخ الموعد</th>
-                                    <th>الوقت</th>
-                                    <th>حالة الحجز</th>
-                                    <th>إجراءات</th>
+                                    <th>وقت الكشف (ساعة كاملة)</th>
+                                    <th>الحالة</th>
+                                    <th>إجراءات الإدارة</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr>
-                                    <td><span class="badge bg-secondary-subtle text-secondary font-monospace">#DC-8849</span></td>
-                                    <td class="fw-semibold">د. حازم حجاج</td>
-                                    <td>كشف واستشارة طبية</td>
-                                    <td>غداً (الأربعاء)</td>
-                                    <td>06:00 م - 06:30 م</td>
-                                    <td><span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 rounded-pill">مؤكد</span></td>
-                                    <td>
-                                        <a href="/Appointments/Confirmation?reference=DC-8849" class="btn btn-outline-primary btn-sm rounded-pill px-2 py-1">
-                                            <i class="bi bi-eye me-1"></i> التفاصيل
-                                        </a>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td><span class="badge bg-secondary-subtle text-secondary font-monospace">#DC-7120</span></td>
-                                    <td class="fw-semibold">د. سارة المنشاوي</td>
-                                    <td>تنظيف وتلميع أسنان وإزالة الجير</td>
-                                    <td>10 نوفمبر 2026</td>
-                                    <td>04:00 م - 04:30 م</td>
-                                    <td><span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1 rounded-pill">مكتمل</span></td>
-                                    <td>
-                                        <span class="text-muted small">تم الفحص</span>
-                                    </td>
-                                </tr>
+                                <% if (bookingsList.length > 0) { %>
+                                    <% bookingsList.forEach(booking => { %>
+                                        <tr id="p-row-<%= booking.reference %>" class="patient-booking-row <%= booking.status === 'ملغي' ? 'table-light text-muted' : '' %>" data-status="<%= booking.status || 'مؤكد' %>">
+                                            <td>
+                                                <span class="badge bg-secondary-subtle text-secondary font-monospace fw-bold fs-6">
+                                                    <%= booking.reference %>
+                                                </span>
+                                            </td>
+                                            <td class="fw-semibold"><%= booking.patient_name %></td>
+                                            <td dir="ltr" class="text-end font-monospace"><%= booking.patient_phone %></td>
+                                            <td>
+                                                <span class="text-dark fw-medium"><%= booking.doctor_name %></span>
+                                                <small class="text-muted d-block"><%= booking.doctor_specialty %></small>
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-light text-dark border"><%= booking.selected_service %></span>
+                                            </td>
+                                            <td>
+                                                <span class="fw-semibold text-dark"><%= booking.appointment_date %></span>
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle px-2 py-1">
+                                                    <i class="bi bi-clock me-1"></i><%= booking.appointment_time %>
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <% if (booking.status === 'مؤكد') { %>
+                                                    <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 rounded-pill">🟢 مؤكد</span>
+                                                <% } else if (booking.status === 'قيد الانتظار' || booking.status === 'pending') { %>
+                                                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1 rounded-pill">🟡 قيد الانتظار</span>
+                                                <% } else if (booking.status === 'مكتمل') { %>
+                                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1 rounded-pill">🔵 مكتمل</span>
+                                                <% } else { %>
+                                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1 rounded-pill">🔴 ملغي</span>
+                                                <% } %>
+                                            </td>
+                                            <td>
+                                                <div class="d-flex align-items-center gap-1">
+                                                    <a href="/Appointments/Confirmation?reference=<%= encodeURIComponent(booking.reference) %>" 
+                                                       class="btn btn-outline-primary btn-sm rounded-pill px-2 py-1" title="عرض تفاصيل الحجز">
+                                                        <i class="bi bi-eye"></i>
+                                                    </a>
+                                                    <% if (booking.status !== 'ملغي' && booking.status !== 'مكتمل') { %>
+                                                        <button type="button" class="btn btn-outline-danger btn-sm rounded-pill px-2 py-1" 
+                                                                onclick="cancelPatientBooking('<%= booking.reference %>')" title="إلغاء الموعد وتفريغ الوقت">
+                                                            <i class="bi bi-x-circle"></i>
+                                                        </button>
+                                                    <% } %>
+                                                    <a href="https://wa.me/201551388988?text=<%= encodeURIComponent('مرحباً، أود الاستفسار عن حجزي رقم: ' + booking.reference) %>" 
+                                                       target="_blank" rel="noopener noreferrer" class="btn btn-outline-success btn-sm rounded-pill px-2 py-1" title="محادثة واتساب">
+                                                        <i class="bi bi-whatsapp"></i>
+                                                    </a>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    <% }); %>
+                                <% } else { %>
+                                    <tr>
+                                        <td colspan="9" class="text-center py-5 text-muted">
+                                            <i class="bi bi-calendar-x fs-1 d-block mb-2 text-secondary"></i>
+                                            <span class="fw-semibold">لا توجد حجوزات مسجلة حتى الآن.</span>
+                                            <div class="mt-3">
+                                                <a href="/Appointments/Book" class="btn btn-primary btn-sm rounded-pill px-4">
+                                                    <i class="bi bi-calendar2-plus me-1"></i> احجز أول موعد لك الآن
+                                                </a>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                <% } %>
                             </tbody>
                         </table>
                     </div>
@@ -185,7 +261,7 @@
                                     <h6 class="fw-bold text-dark mb-1"><i class="bi bi-card-checklist text-success me-2"></i>خطة العلاج الموصى بها</h6>
                                     <span class="badge bg-success-subtle text-success border border-success-subtle">محدثة</span>
                                 </div>
-                                <p class="text-muted small mb-2">خطة المتابعة الدورية لصحة الفم واللثة لعام 2026</p>
+                                <p class="text-muted small mb-2">خطة المتابعة الدورية لصحة الفم واللثة بنظام الورديتين</p>
                                 <div class="progress mb-2" style="height: 8px;">
                                     <div class="progress-bar bg-success" role="progressbar" style="width: 75%;" aria-valuenow="75" aria-valuemin="0" aria-valuemax="100"></div>
                                 </div>
@@ -204,19 +280,19 @@
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label class="form-label text-muted small fw-semibold">الاسم الكامل</label>
-                            <input type="text" class="form-control" value="أحمد محمد علي" readonly />
+                            <input type="text" class="form-control" value="مريض مركز دينتال سيتي" readonly />
                         </div>
                         <div class="col-md-6">
                             <label class="form-label text-muted small fw-semibold">رقم الهاتف المسجل</label>
-                            <input type="text" class="form-control font-monospace" value="01012345678" readonly />
+                            <input type="text" class="form-control font-monospace" value="01551388988" readonly />
                         </div>
                         <div class="col-md-6">
                             <label class="form-label text-muted small fw-semibold">البريد الإلكتروني</label>
                             <input type="email" class="form-control font-monospace" value="patient@dentalcity.clinic" readonly />
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label text-muted small fw-semibold">فصيلة الدم / أي حساسية دوائية</label>
-                            <input type="text" class="form-control" value="O+ (لا توجد حساسية بنسلين)" readonly />
+                            <label class="form-label text-muted small fw-semibold">نظام الورديات المعتمد</label>
+                            <input type="text" class="form-control text-success fw-semibold" value="وردية صباحية (09:00 ص - 12:00 م) | وردية مسائية (12:00 م - 06:00 م)" readonly />
                         </div>
                     </div>
                     <div class="mt-4 pt-3 border-top d-flex gap-2 justify-content-end">
@@ -229,3 +305,55 @@
         </div>
     </div>
 </div>
+
+<script>
+    function filterPatientBookings() {
+        const query = document.getElementById("patientBookingSearch").value.toLowerCase();
+        const rows = document.querySelectorAll("#patientBookingsTable tbody tr.patient-booking-row");
+        rows.forEach(row => {
+            const text = row.innerText.toLowerCase();
+            row.style.display = text.includes(query) ? "" : "none";
+        });
+    }
+
+    function filterByStatus(status, btn) {
+        document.querySelectorAll("#p-appointments .btn-outline-secondary, #p-appointments .btn-outline-success, #p-appointments .btn-outline-warning, #p-appointments .btn-outline-primary, #p-appointments .btn-outline-danger").forEach(b => {
+            b.classList.remove("active");
+        });
+        if (btn) btn.classList.add("active");
+
+        const rows = document.querySelectorAll("#patientBookingsTable tbody tr.patient-booking-row");
+        rows.forEach(row => {
+            const rowStatus = row.getAttribute("data-status");
+            if (status === "all" || rowStatus === status || (status === 'قيد الانتظار' && rowStatus === 'pending')) {
+                row.style.display = "";
+            } else {
+                row.style.display = "none";
+            }
+        });
+    }
+
+    async function cancelPatientBooking(reference) {
+        if (!confirm(`هل أنت متأكد من رغبتك في إلغاء الحجز رقم (${reference})؟ سيتم تفريغ الموعد فوراً وإتاحته للآخرين.`)) {
+            return;
+        }
+
+        try {
+            const res = await fetch("/Patient/Appointments/Cancel", {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: new URLSearchParams({ reference })
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert("تم إلغاء الموعد بنجاح.");
+                location.reload();
+            } else {
+                alert("تعذر إلغاء الحجز: " + (data.message || ""));
+            }
+        } catch (err) {
+            console.error("Cancel booking error:", err);
+            alert("حدث خطأ في الاتصال بالخادم.");
+        }
+    }
+</script>

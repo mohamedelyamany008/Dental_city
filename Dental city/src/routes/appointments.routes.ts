@@ -182,6 +182,45 @@ appointmentRoutes.get(['/Patient/Portal', '/patient/portal', '/Portal', '/portal
   }
 });
 
+// POST /Patient/Appointments/UpdateStatus
+appointmentRoutes.post(['/Patient/Appointments/UpdateStatus', '/patient/appointments/updatestatus'], async (req: Request, res: Response) => {
+  const reference = (req.body.reference as string) || (req.query.reference as string);
+  const status = (req.body.status as string) || (req.query.status as string);
+  if (!reference || !status) {
+    return res.status(400).json({ success: false, message: 'الرقم المرجعي والحالة مطلوبان' });
+  }
+
+  try {
+    const success = await AppointmentService.updateBookingStatus(reference, status);
+    return res.json({
+      success,
+      message: success ? `تم تحديث حالة الحجز إلى (${status}) بنجاح.` : 'تعذر تحديث حالة الحجز'
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return res.status(500).json({ success: false, message: msg });
+  }
+});
+
+// POST /Patient/Appointments/Cancel
+appointmentRoutes.post(['/Patient/Appointments/Cancel', '/patient/appointments/cancel'], async (req: Request, res: Response) => {
+  const reference = (req.body.reference as string) || (req.query.reference as string);
+  if (!reference) {
+    return res.status(400).json({ success: false, message: 'الرقم المرجعي مطلوب' });
+  }
+
+  try {
+    const success = await AppointmentService.cancelBooking(reference);
+    return res.json({
+      success,
+      message: success ? 'تم إلغاء الموعد وتفريغ الوقت بنجاح.' : 'تعذر إلغاء الحجز'
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return res.status(500).json({ success: false, message: msg });
+  }
+});
+
 // GET /Patient/Logout
 appointmentRoutes.get(['/Patient/Logout', '/patient/logout'], (_req: Request, res: Response) => {
   return res.redirect('/');

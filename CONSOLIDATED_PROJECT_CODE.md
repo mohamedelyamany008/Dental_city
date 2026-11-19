@@ -1,5 +1,5 @@
 # ملف الكود البرمجي الشامل لمشروع مركز دينتال سيتي (Dental City)
-> **تاريخ التجميع:** ١٩‏/١١‏/٢٠٢٦، ٦:٣٥:٢٧ ص
+> **تاريخ التجميع:** ١٩‏/١١‏/٢٠٢٦، ٧:٠٦:٠٣ ص
 > **البيئة:** Node.js (TypeScript) + Express + EJS + Supabase (PostgreSQL)
 > **ملاحظة:** تم تجميع كل ملفات المشروع البرمجية في هذا المستند للعرض والمراجعة والنسخ بسهولة دون المساس أو التعديل بأي من الملفات الأصلية.
 
@@ -696,8 +696,8 @@ indexRoutes.get('/Privacy', (_req: Request, res: Response) => {
 ### Appointments Routes & API (appointments.routes.ts)
 
 - **المسار:** `Dental city/src/routes/appointments.routes.ts`
-- **عدد الأسطر:** 189 سطر
-- **الحجم:** 7.2 KB
+- **عدد الأسطر:** 228 سطر
+- **الحجم:** 8.9 KB
 
 ````typescript
 import { Router, Request, Response } from 'express';
@@ -881,6 +881,45 @@ appointmentRoutes.get(['/Patient/Portal', '/patient/portal', '/Portal', '/portal
     const msg = err instanceof Error ? err.message : String(err);
     console.error('Patient portal error:', msg);
     return res.status(500).render('error', { message: 'حدث خطأ أثناء عرض بوابة المريض.' });
+  }
+});
+
+// POST /Patient/Appointments/UpdateStatus
+appointmentRoutes.post(['/Patient/Appointments/UpdateStatus', '/patient/appointments/updatestatus'], async (req: Request, res: Response) => {
+  const reference = (req.body.reference as string) || (req.query.reference as string);
+  const status = (req.body.status as string) || (req.query.status as string);
+  if (!reference || !status) {
+    return res.status(400).json({ success: false, message: 'الرقم المرجعي والحالة مطلوبان' });
+  }
+
+  try {
+    const success = await AppointmentService.updateBookingStatus(reference, status);
+    return res.json({
+      success,
+      message: success ? `تم تحديث حالة الحجز إلى (${status}) بنجاح.` : 'تعذر تحديث حالة الحجز'
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return res.status(500).json({ success: false, message: msg });
+  }
+});
+
+// POST /Patient/Appointments/Cancel
+appointmentRoutes.post(['/Patient/Appointments/Cancel', '/patient/appointments/cancel'], async (req: Request, res: Response) => {
+  const reference = (req.body.reference as string) || (req.query.reference as string);
+  if (!reference) {
+    return res.status(400).json({ success: false, message: 'الرقم المرجعي مطلوب' });
+  }
+
+  try {
+    const success = await AppointmentService.cancelBooking(reference);
+    return res.json({
+      success,
+      message: success ? 'تم إلغاء الموعد وتفريغ الوقت بنجاح.' : 'تعذر إلغاء الحجز'
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return res.status(500).json({ success: false, message: msg });
   }
 });
 
@@ -1290,8 +1329,8 @@ doctorRoutes.post(['/Doctor/Dashboard', '/doctor/dashboard'], requireDoctorAuth,
 ### Appointment & Doctor Service (appointmentService.ts)
 
 - **المسار:** `Dental city/src/services/appointmentService.ts`
-- **عدد الأسطر:** 929 سطر
-- **الحجم:** 31.8 KB
+- **عدد الأسطر:** 985 سطر
+- **الحجم:** 34.3 KB
 
 ````typescript
 import { supabase } from '../config/supabase.js';
@@ -1345,8 +1384,67 @@ export class AppointmentService {
     'علاج أمراض والتهابات اللثة'
   ];
 
-  // In-memory slot templates
-  private static configuredSlots: AppointmentSlot[] = AppointmentService.generateStandardSlots(30);
+  // ============================================================================
+  // Two-Shift Schedule Configuration (Mandatory 1-Hour Intervals)
+  // Morning Shift: 09:00 AM - 12:00 PM | Evening Shift: 12:00 PM - 06:00 PM
+  // ============================================================================
+  public static readonly MORNING_SHIFT_HOURS = '09:00 ص - 12:00 م';
+  public static readonly EVENING_SHIFT_HOURS = '12:00 م - 06:00 م';
+  public static readonly FULL_DAY_HOURS = '09:00 ص - 12:00 م | 12:00 م - 06:00 م';
+
+  // Fixed 1-hour interval slots for Morning Shift (9 AM - 12 PM)
+  public static readonly MORNING_SLOTS: string[] = [
+    '09:00 ص',
+    '10:00 ص',
+    '11:00 ص'
+  ];
+
+  // Fixed 1-hour interval slots for Evening Shift (12 PM - 6 PM)
+  public static readonly EVENING_SLOTS: string[] = [
+    '12:00 م',
+    '01:00 م',
+    '02:00 م',
+    '03:00 م',
+    '04:00 م',
+    '05:00 م'
+  ];
+
+  // Combined 1-hour interval slots (9 slots per full working day)
+  public static readonly ALL_SHIFT_SLOTS: string[] = [
+    ...AppointmentService.MORNING_SLOTS,
+    ...AppointmentService.EVENING_SLOTS
+  ];
+
+  /**
+   * Generates Two-Shift slots with mandatory 1-hour interval between appointments.
+   * Morning: 09:00 AM - 12:00 PM | Evening: 12:00 PM - 06:00 PM
+   */
+  public static getTwoShiftSlots(filterSlots?: string[]): AppointmentSlot[] {
+    const filterSet = (filterSlots && filterSlots.length > 0)
+      ? new Set(filterSlots.map(s => this.normalizeTimeSlot(s)))
+      : null;
+
+    const morning = this.MORNING_SLOTS
+      .filter(s => !filterSet || filterSet.has(this.normalizeTimeSlot(s)))
+      .map(time => ({
+        time: this.normalizeTimeSlot(time),
+        period: 'صباحي' as const,
+        isAvailable: true
+      }));
+
+    const evening = this.EVENING_SLOTS
+      .filter(s => !filterSet || filterSet.has(this.normalizeTimeSlot(s)))
+      .map(time => ({
+        time: this.normalizeTimeSlot(time),
+        period: 'مسائي' as const,
+        isAvailable: true
+      }));
+
+    return [...morning, ...evening];
+  }
+
+  // In-memory slot templates initialized with the two-shift 1-hour interval schedule
+  private static configuredSlots: AppointmentSlot[] = AppointmentService.getTwoShiftSlots();
 
   // In-memory recent bookings for instant lookup
   private static recentBookings: Map<string, Booking> = new Map();
@@ -1364,38 +1462,9 @@ export class AppointmentService {
     this.allDoctorsCache = null;
   }
 
-  /**
-   * Generates morning (09:00 AM to 12:00 PM) and afternoon (12:00 PM to 06:00 PM) slots
-   */
-  public static generateStandardSlots(intervalMinutes: number = 30): AppointmentSlot[] {
-    const validInterval = (intervalMinutes === 15 || intervalMinutes === 30) ? intervalMinutes : 30;
-    const slots: AppointmentSlot[] = [];
-
-    // 1. Morning Period: 09:00 AM to 12:00 PM
-    let currentMin = 9 * 60; // 09:00 AM
-    const morningEnd = 12 * 60; // 12:00 PM
-    while (currentMin < morningEnd) {
-      slots.push({
-        time: this.formatMinutesToArabic(currentMin),
-        period: 'صباحي',
-        isAvailable: true
-      });
-      currentMin += validInterval;
-    }
-
-    // 2. Afternoon Period: 12:00 PM to 06:00 PM
-    currentMin = 12 * 60; // 12:00 PM
-    const afternoonEnd = 18 * 60; // 06:00 PM
-    while (currentMin <= afternoonEnd) {
-      slots.push({
-        time: this.formatMinutesToArabic(currentMin),
-        period: 'مسائي',
-        isAvailable: true
-      });
-      currentMin += validInterval;
-    }
-
-    return slots;
+  // Backward-compatible alias
+  public static generateStandardSlots(_intervalMinutes?: number): AppointmentSlot[] {
+    return this.getTwoShiftSlots();
   }
 
   public static formatMinutesToArabic(totalMinutes: number): string {
@@ -1422,6 +1491,15 @@ export class AppointmentService {
           t = t.replace('?', 'م');
         }
       }
+    }
+    const m = t.match(/^(\d{1,2}):(\d{2})\s*([صمAMPMampm]+)?$/);
+    if (m) {
+      const hh = m[1].padStart(2, '0');
+      const mm = m[2];
+      let p = (m[3] || '').trim();
+      if (p.toUpperCase() === 'AM') p = 'ص';
+      if (p.toUpperCase() === 'PM') p = 'م';
+      return `${hh}:${mm}${p ? ' ' + p : ''}`.trim();
     }
     return t;
   }
@@ -1670,29 +1748,46 @@ export class AppointmentService {
       return { isWorkingDay: false, offDayReason: 'تاريخ غير صالح', slots: [] };
     }
 
-    // Check Day of Week
+    // Check Day of Week against active working days
     const dayOfWeek = date.getDay(); // 0 = Sunday, 1 = Monday, ..., 5 = Friday, 6 = Saturday
-    const offDay = doctor.OffDays ?? 5;
+    const dayNames = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+    const currentDayName = dayNames[dayOfWeek];
 
-    if (dayOfWeek === offDay) {
-      const dayNames = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+    let isWorkingDay = true;
+    if (doctor.WorkingDays && doctor.WorkingDays.trim() !== '') {
+      const wDays = doctor.WorkingDays;
+      if (wDays.includes('السبت - الخميس') || wDays.includes('الجمعة إجازة')) {
+        isWorkingDay = (dayOfWeek !== 5); // Friday off
+      } else {
+        isWorkingDay = wDays.includes(currentDayName) || 
+                       (currentDayName === 'الإثنين' && wDays.includes('الاثنين'));
+      }
+    } else if (doctor.OffDays !== undefined && doctor.OffDays !== null) {
+      isWorkingDay = (dayOfWeek !== doctor.OffDays);
+    }
+
+    if (!isWorkingDay) {
       return {
         isWorkingDay: false,
-        offDayReason: `يوم ${dayNames[dayOfWeek]} هو يوم الإجازة الأسبوعية المعتمدة لـ (${doctor.name}).`,
+        offDayReason: `يوم ${currentDayName} غير مدرج ضمن جدول العمل المعتمد لـ (${doctor.name}). يرجى اختيار أحد أيام العمل المتاحة.`,
         slots: []
       };
     }
 
-    // Base slots for the doctor
+    // Base slots for the doctor adhering to the Two-Shift 1-hour interval model
     let baseSlotTimes = doctor.AvaliableSlots || [];
-    if (baseSlotTimes.length === 0) {
-      baseSlotTimes = this.configuredSlots.map(s => s.time);
-    }
+    const normalizedShiftSlots = new Set(this.ALL_SHIFT_SLOTS.map(s => this.normalizeTimeSlot(s)));
+    const validDoctorSlots = baseSlotTimes
+      .map(s => this.normalizeTimeSlot(s))
+      .filter(s => normalizedShiftSlots.has(s));
+
+    // If doctor has defined valid 1-hour shift slots use them, otherwise use standard two-shift slots
+    const activeSlotsList = validDoctorSlots.length > 0 ? validDoctorSlots : this.ALL_SHIFT_SLOTS;
 
     // Retrieve booked slots directly from Supabase Bookings with zero caching
     const bookedTimes = await this.getBookedSlotsForDoctorAndDate(doctorId, dateString);
 
-    const slots: AppointmentSlot[] = baseSlotTimes.map(time => {
+    const slots: AppointmentSlot[] = activeSlotsList.map(time => {
       const normalizedTime = this.normalizeTimeSlot(time);
       const isBooked =
         bookedTimes.has(time.trim()) ||
@@ -2758,7 +2853,7 @@ export class WhatsAppNotificationService {
 
 - **المسار:** `Dental city/src/views/appointments/book.ejs`
 - **عدد الأسطر:** 857 سطر
-- **الحجم:** 45.4 KB
+- **الحجم:** 45.5 KB
 
 ````html
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
@@ -3201,10 +3296,10 @@ export class WhatsAppNotificationService {
 
                     <!-- حاوية أوقات الحجز (صباحي ومسائي) -->
                     <div id="slotsContainer" class="<%= selectedDocId ? '' : 'd-none' %>">
-                        <!-- دليل ألوان حالة المواعيد -->
+                        <!-- دليل ألوان حالة المواعيد ونظام الورديتين -->
                         <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3 pb-2 border-bottom">
                             <span class="small fw-semibold text-secondary">
-                                <i class="bi bi-clock-history text-primary me-1"></i> جدول المواعيد المتاحة والمحجوزة:
+                                <i class="bi bi-clock-history text-primary me-1"></i> نظام الورديتين المعتمد (فاصل ساعة كاملة إلزامي بين كل كشف):
                             </span>
                             <div class="d-flex align-items-center gap-3 small">
                                 <span class="d-inline-flex align-items-center gap-1 text-success fw-medium">
@@ -4025,8 +4120,8 @@ export class WhatsAppNotificationService {
 ### لوحة تحكم الطبيب والعيادة (dashboard.ejs)
 
 - **المسار:** `Dental city/src/views/doctor/dashboard.ejs`
-- **عدد الأسطر:** 1569 سطر
-- **الحجم:** 89.7 KB
+- **عدد الأسطر:** 2000 سطر
+- **الحجم:** 120.8 KB
 
 ````html
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
@@ -4250,165 +4345,107 @@ export class WhatsAppNotificationService {
         </div>
     </div>
 
-    <!-- بطاقات الإحصائيات KPI Cards -->
+    <!-- بطاقات الإحصائيات والمؤشرات KPI Cards -->
     <div class="row g-3 mb-4">
         <div class="col-sm-6 col-xl-3">
             <div class="stat-card">
                 <div class="stat-icon bg-primary-subtle text-primary">
-                    <i class="bi bi-journal-check"></i>
+                    <i class="bi bi-person-badge-fill"></i>
                 </div>
                 <div>
-                    <span class="text-muted small fw-semibold">إجمالي الحجوزات</span>
-                    <h3 class="fw-bold text-dark mb-0" id="stat-total-bookings"><%= recentBookings ? recentBookings.length : 0 %></h3>
+                    <span class="text-muted small fw-semibold">الأطباء المعتمدون</span>
+                    <h3 class="fw-bold text-dark mb-0"><%= doctors ? doctors.length : 0 %> أطباء</h3>
                 </div>
             </div>
         </div>
         <div class="col-sm-6 col-xl-3">
             <div class="stat-card">
                 <div class="stat-icon bg-success-subtle text-success">
-                    <i class="bi bi-calendar2-check-fill"></i>
+                    <i class="bi bi-clock-history"></i>
                 </div>
                 <div>
-                    <span class="text-muted small fw-semibold">الحجوزات المؤكدة</span>
-                    <h3 class="fw-bold text-dark mb-0" id="stat-confirmed-bookings"><%= recentBookings ? recentBookings.filter(b => b.status === 'مؤكد').length : 0 %></h3>
-                </div>
-            </div>
-        </div>
-        <div class="col-sm-6 col-xl-3">
-            <div class="stat-card">
-                <div class="stat-icon bg-info-subtle text-info">
-                    <i class="bi bi-person-badge-fill"></i>
-                </div>
-                <div>
-                    <span class="text-muted small fw-semibold">الأطباء المسجلون</span>
-                    <h3 class="fw-bold text-dark mb-0"><%= doctors ? doctors.length : 0 %></h3>
+                    <span class="text-muted small fw-semibold">نظام الورديات اليومي</span>
+                    <h5 class="fw-bold text-dark mb-0 fs-6">صباحي (9-12) | مسائي (12-6)</h5>
                 </div>
             </div>
         </div>
         <div class="col-sm-6 col-xl-3">
             <div class="stat-card">
                 <div class="stat-icon bg-warning-subtle text-warning">
-                    <i class="bi bi-clock-fill"></i>
+                    <i class="bi bi-stopwatch-fill"></i>
                 </div>
                 <div>
-                    <span class="text-muted small fw-semibold">أوقات الكشف المتاحة</span>
-                    <h3 class="fw-bold text-dark mb-0"><%= configuredSlots ? configuredSlots.filter(s => s.isAvailable).length : 0 %></h3>
+                    <span class="text-muted small fw-semibold">فاصل الكشف الإلزامي</span>
+                    <h3 class="fw-bold text-dark mb-0">60 دقيقة</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-xl-3">
+            <div class="stat-card">
+                <div class="stat-icon bg-info-subtle text-info">
+                    <i class="bi bi-tags-fill"></i>
+                </div>
+                <div>
+                    <span class="text-muted small fw-semibold">الخدمات والتخصصات</span>
+                    <h3 class="fw-bold text-dark mb-0"><%= services ? services.length : 0 %> باقة</h3>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- التبويبات الرئيسية للوحة التحكم -->
+    <!-- تنويه نقل سجل الحجوزات إلى بوابة المريض -->
+    <div class="alert alert-info border-0 rounded-4 shadow-sm p-3 mb-4 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3" style="background: linear-gradient(135deg, #e0f2fe 0%, #ccfbf1 100%);">
+        <div class="d-flex align-items-center gap-3">
+            <div class="rounded-circle bg-white p-2 text-primary shadow-sm flex-shrink-0" style="width: 42px; height: 42px; display: flex; align-items: center; justify-content: center;">
+                <i class="bi bi-shield-check fs-4"></i>
+            </div>
+            <div>
+                <strong class="text-dark d-block">إشعار معماري: تم نقل "سجل الحجوزات" بالكامل وبشكل حصري لبوابة المريض</strong>
+                <span class="text-secondary small">تم تخصيص إدارة ومتابعة وتأكيد حجوزات المرضى حصرياً في بوابة المريض الإلكترونية لضمان الخصوصية وسرعة الخدمة.</span>
+            </div>
+        </div>
+        <a href="/Patient/Portal" class="btn btn-primary btn-sm rounded-pill px-4 shadow-sm flex-shrink-0">
+            <i class="bi bi-box-arrow-up-right me-1"></i> فتح بوابة المريض
+        </a>
+    </div>
+
+    <!-- التبويبات الرئيسية للوحة التحكم (أطباء، موظفين وصلاحيات، خدمات وأسعار، إعدادات) -->
     <div class="panel-card p-0 overflow-hidden">
         <ul class="nav nav-tabs px-3 pt-2 bg-light border-bottom" id="dashboardTabs" role="tablist">
             <li class="nav-item" role="presentation">
-                <button class="nav-link active" id="bookings-tab" data-bs-toggle="tab" data-bs-target="#bookings-panel" type="button" role="tab">
-                    <i class="bi bi-calendar3 me-1"></i> الحجوزات الحية (<span id="bookings-tab-count"><%= recentBookings ? recentBookings.length : 0 %></span>)
+                <button class="nav-link active" id="doctors-tab" data-bs-toggle="tab" data-bs-target="#doctors-panel" type="button" role="tab">
+                    <i class="bi bi-people me-1"></i> أطباء المركز والمناوبات (<%= doctors ? doctors.length : 0 %>)
                 </button>
             </li>
             <li class="nav-item" role="presentation">
-                <button class="nav-link" id="doctors-tab" data-bs-toggle="tab" data-bs-target="#doctors-panel" type="button" role="tab">
-                    <i class="bi bi-people me-1"></i> أطباء المركز (<%= doctors ? doctors.length : 0 %>)
+                <button class="nav-link" id="staff-tab" data-bs-toggle="tab" data-bs-target="#staff-panel" type="button" role="tab">
+                    <i class="bi bi-shield-lock me-1"></i> الموظفين والصلاحيات
                 </button>
             </li>
             <li class="nav-item" role="presentation">
                 <button class="nav-link" id="services-tab" data-bs-toggle="tab" data-bs-target="#services-panel" type="button" role="tab">
-                    <i class="bi bi-list-stars me-1"></i> الخدمات والتخصصات (<%= services ? services.length : 0 %>)
+                    <i class="bi bi-tags me-1"></i> الخدمات والأسعار (<%= services ? services.length : 0 %>)
                 </button>
             </li>
             <li class="nav-item" role="presentation">
-                <button class="nav-link" id="slots-tab" data-bs-toggle="tab" data-bs-target="#slots-panel" type="button" role="tab">
-                    <i class="bi bi-clock-history me-1"></i> جدول المواعيد الافتراضي (<%= configuredSlots ? configuredSlots.length : 0 %>)
+                <button class="nav-link" id="settings-tab" data-bs-toggle="tab" data-bs-target="#settings-panel" type="button" role="tab">
+                    <i class="bi bi-gear-wide-connected me-1"></i> إعدادات الورديات والمواعيد
                 </button>
             </li>
         </ul>
 
         <div class="tab-content p-4" id="dashboardTabsContent">
-            <!-- 1. تبويب الحجوزات الحية -->
-            <div class="tab-pane fade show active" id="bookings-panel" role="tabpanel">
-                <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
-                    <h5 class="fw-bold text-dark mb-0">سجل حجوزات المرضى الواردة</h5>
-                    <div style="max-width: 280px; width: 100%;">
-                        <div class="input-group input-group-sm">
-                            <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
-                            <input type="text" class="form-control" id="bookingSearchInput" onkeyup="filterBookingsTable()" placeholder="ابحث بالاسم أو الهاتف أو الرمز..." />
-                        </div>
-                    </div>
-                </div>
-
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle" id="bookingsTable">
-                        <thead>
-                            <tr>
-                                <th>الرقم المرجعي</th>
-                                <th>المريض</th>
-                                <th>النوع / السن</th>
-                                <th>الهاتف</th>
-                                <th>الطبيب</th>
-                                <th>الخدمة</th>
-                                <th>تاريخ وموعد الكشف</th>
-                                <th>الحالة</th>
-                                <th>إجراءات</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <% if (typeof recentBookings !== 'undefined' && recentBookings.length > 0) { %>
-                                <% recentBookings.forEach(booking => { %>
-                                    <tr id="booking-row-<%= booking.reference %>" class="<%= booking.status === 'ملغي' ? 'row-cancelled' : '' %>">
-                                        <td class="font-monospace fw-bold text-primary"><%= booking.reference %></td>
-                                        <td class="fw-semibold"><%= booking.patient_name %></td>
-                                        <td>
-                                            <span class="badge <%= booking.gender === 'أنثى' ? 'bg-danger-subtle text-danger border border-danger-subtle' : 'bg-primary-subtle text-primary border border-primary-subtle' %>">
-                                                <%= booking.gender || 'غير محدد' %>
-                                            </span>
-                                            <small class="text-muted d-block mt-1">
-                                                <%= booking.age ? `${booking.age} سنة` : (booking.birth_date ? booking.birth_date : '-') %>
-                                            </small>
-                                        </td>
-                                        <td dir="ltr" class="text-end font-monospace"><%= booking.patient_phone %></td>
-                                        <td><%= booking.doctor_name %></td>
-                                        <td><span class="badge bg-light text-dark border"><%= booking.selected_service %></span></td>
-                                        <td class="booking-time-col">
-                                            <div class="fw-semibold"><%= booking.appointment_date %></div>
-                                            <small class="text-muted"><%= booking.appointment_time %></small>
-                                        </td>
-                                        <td>
-                                            <select class="form-select form-select-sm fw-semibold status-select-<%= (booking.status || 'مؤكد').replace(/\s+/g, '') %>" style="width: 125px; border-radius: 0.5rem;" onchange="updateBookingStatusAjax('<%= booking.reference %>', this.value, this)">
-                                                <option value="مؤكد" <%= booking.status === 'مؤكد' ? 'selected' : '' %>>🟢 مؤكد</option>
-                                                <option value="قيد الانتظار" <%= booking.status === 'قيد الانتظار' ? 'selected' : '' %>>🟡 قيد الانتظار</option>
-                                                <option value="مكتمل" <%= booking.status === 'مكتمل' ? 'selected' : '' %>>🔵 مكتمل</option>
-                                                <option value="ملغي" <%= booking.status === 'ملغي' ? 'selected' : '' %>>🔴 ملغي</option>
-                                            </select>
-                                        </td>
-                                        <td>
-                                            <div class="d-flex align-items-center gap-1">
-                                                <button type="button" class="btn btn-outline-warning btn-sm rounded-pill px-2" onclick="cancelBookingAjax('<%= booking.reference %>')" title="إلغاء الموعد وتفريغ وقته">
-                                                    <i class="bi bi-x-circle"></i>
-                                                </button>
-                                                <button type="button" class="btn btn-outline-danger btn-sm rounded-pill px-2" onclick="deleteBookingAjax('<%= booking.reference %>')" title="حذف الحجز نهائياً">
-                                                    <i class="bi bi-trash"></i>
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                <% }); %>
-                            <% } else { %>
-                                <tr>
-                                    <td colspan="9" class="text-center py-4 text-muted">لا توجد حجوزات مسجلة حتى الآن.</td>
-                                </tr>
-                            <% } %>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- 2. تبويب أطباء المركز -->
-            <div class="tab-pane fade" id="doctors-panel" role="tabpanel">
+            <!-- 1. تبويب أطباء المركز والمناوبات (Active by default) -->
+            <div class="tab-pane fade show active" id="doctors-panel" role="tabpanel">
                 <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h5 class="fw-bold text-dark mb-0">قائمة الأطباء والاستشاريين المعتمدين</h5>
-                    <button type="button" class="btn btn-primary btn-sm rounded-pill px-3" onclick="openAddDoctorModal()">
+                    <div>
+                        <h5 class="fw-bold text-dark mb-0">قائمة الأطباء والاستشاريين المعتمدين</h5>
+                        <small class="text-muted">إدارة بيانات الأطباء وتحديد جداول الورديات (صباحي/مسائي) بفاصل ساعة إلزامي</small>
+                    </div>
+                    <button type="button" class="btn btn-primary btn-sm rounded-pill px-3 shadow-sm" onclick="openAddDoctorModal()">
                         <i class="bi bi-plus-lg me-1"></i> إضافة طبيب
                     </button>
+                </div>
                 </div>
 
                 <div class="row g-3">
@@ -4466,25 +4503,170 @@ export class WhatsAppNotificationService {
                 </div>
             </div>
 
-            <!-- 3. تبويب الخدمات والتخصصات -->
+            <!-- 2. تبويب الموظفين والصلاحيات (Staff & Roles Management) -->
+            <div class="tab-pane fade" id="staff-panel" role="tabpanel">
+                <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+                    <div>
+                        <h5 class="fw-bold text-dark mb-0">إدارة طاقم المركز وتوزيع الصلاحيات (Staff & Roles)</h5>
+                        <small class="text-muted">التحكم في حسابات الكادر الطبي، الاستقبال، المساعدين، ومنح الصلاحيات الأمنية</small>
+                    </div>
+                    <button type="button" class="btn btn-success btn-sm rounded-pill px-3 shadow-sm" onclick="openAddStaffModal()">
+                        <i class="bi bi-person-plus-fill me-1"></i> إضافة موظف / كادر جديد
+                    </button>
+                </div>
+
+                <div class="row g-3 mb-4">
+                    <div class="col-sm-6 col-md-3">
+                        <div class="p-3 border rounded-3 bg-light text-center">
+                            <span class="text-muted small d-block">إجمالي الكادر</span>
+                            <h4 class="fw-bold text-dark mb-0">8 موظفين</h4>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-md-3">
+                        <div class="p-3 border rounded-3 bg-light text-center">
+                            <span class="text-muted small d-block">الكادر الطبي</span>
+                            <h4 class="fw-bold text-primary mb-0"><%= doctors ? doctors.length : 0 %> أطباء</h4>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-md-3">
+                        <div class="p-3 border rounded-3 bg-light text-center">
+                            <span class="text-muted small d-block">موظفو الاستقبال</span>
+                            <h4 class="fw-bold text-info mb-0">2 استقبال</h4>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-md-3">
+                        <div class="p-3 border rounded-3 bg-light text-center">
+                            <span class="text-muted small d-block">التمريض والمعاونة</span>
+                            <h4 class="fw-bold text-success mb-0">2 مساعدين</h4>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>الموظف / العضو</th>
+                                <th>الدور الوظيفي</th>
+                                <th>اسم المستخدم / البريد</th>
+                                <th>مستوى الصلاحيات</th>
+                                <th>العيادة المخصصة</th>
+                                <th>الحالة</th>
+                                <th>إجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width: 38px; height: 38px;">د</div>
+                                        <div>
+                                            <span class="fw-bold text-dark d-block">د. حازم حجاج</span>
+                                            <small class="text-muted">استشاري جراحة وزراعة الأسنان</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td><span class="badge bg-primary">المدير الطبي (Admin)</span></td>
+                                <td class="font-monospace small">admin@dentalcity.clinic</td>
+                                <td><span class="badge bg-danger-subtle text-danger border border-danger-subtle">كامل الصلاحيات (Super Admin)</span></td>
+                                <td>العيادة الاستشارية (100)</td>
+                                <td><span class="badge bg-success">نشط</span></td>
+                                <td>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-2" onclick="openChangePasswordModal()" title="تغيير كلمة المرور">
+                                        <i class="bi bi-key"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="bg-info text-white rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width: 38px; height: 38px;">د</div>
+                                        <div>
+                                            <span class="fw-bold text-dark d-block">د. سارة إبراهيم</span>
+                                            <small class="text-muted">أخصائية علاج الجذور والأسنان</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td><span class="badge bg-info-subtle text-info-emphasis">طبيب معالج (Doctor)</span></td>
+                                <td class="font-monospace small">dr_sara</td>
+                                <td><span class="badge bg-primary-subtle text-primary border border-primary-subtle">الكشوفات والروشتات والملفات</span></td>
+                                <td>عيادة الأسنان (102)</td>
+                                <td><span class="badge bg-success">نشط</span></td>
+                                <td>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-2" onclick="alert('تعديل صلاحيات الطبيب')" title="تعديل">
+                                        <i class="bi bi-pencil-square"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="bg-secondary text-white rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width: 38px; height: 38px;">م</div>
+                                        <div>
+                                            <span class="fw-bold text-dark d-block">أ/ مروة محمود</span>
+                                            <small class="text-muted">موظفة استقبال وتنسيق مواعيد</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td><span class="badge bg-secondary">استقبال (Receptionist)</span></td>
+                                <td class="font-monospace small">reception</td>
+                                <td><span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">إدارة وتأكيد الحجوزات والخزينة</span></td>
+                                <td>مكتب الاستقبال الرئيسي</td>
+                                <td><span class="badge bg-success">نشط</span></td>
+                                <td>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-2" onclick="alert('تعديل صلاحيات الاستقبال')" title="تعديل">
+                                        <i class="bi bi-pencil-square"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width: 38px; height: 38px;">ن</div>
+                                        <div>
+                                            <span class="fw-bold text-dark d-block">م/ نيرة فؤاد</span>
+                                            <small class="text-muted">مساعدة طبيب أسنان وتعقيم</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td><span class="badge bg-success-subtle text-success">مساعد طبيب (Assistant)</span></td>
+                                <td class="font-monospace small">assistant_nayera</td>
+                                <td><span class="badge bg-light text-dark border">المخزن، التعقيم، ومتابعة المعمل</span></td>
+                                <td>غرفة التعقيم والمخزن</td>
+                                <td><span class="badge bg-success">نشط</span></td>
+                                <td>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-2" onclick="alert('تعديل صلاحيات المساعد')" title="تعديل">
+                                        <i class="bi bi-pencil-square"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 3. تبويب الخدمات والأسعار (Services & Pricing) -->
             <div class="tab-pane fade" id="services-panel" role="tabpanel">
                 <div class="row g-4">
                     <div class="col-md-5">
-                        <div class="card border rounded-3 p-3 bg-light">
+                        <div class="card border rounded-3 p-3 bg-light shadow-sm">
                             <h6 class="fw-bold mb-3"><i class="bi bi-plus-circle me-1 text-primary"></i> إضافة خدمة طبية جديدة</h6>
                             <form method="post" action="/Doctor/Dashboard?handler=AddService">
                                 <div class="mb-3">
-                                    <label class="form-label small fw-semibold">اسم الخدمة أو الإجراء</label>
-                                    <input name="newService" class="form-control" placeholder="مثال: حشو أسنان ليزري" required />
+                                    <label class="form-label small fw-semibold">اسم الخدمة أو الإجراء الطبي</label>
+                                    <input name="newService" class="form-control" placeholder="مثال: حشو أسنان ليزري تجميلي" required />
                                 </div>
-                                <button type="submit" class="btn btn-primary btn-sm rounded-pill px-3">
+                                <button type="submit" class="btn btn-primary btn-sm rounded-pill px-3 shadow-sm">
                                     <i class="bi bi-plus-lg me-1"></i> حفظ وإضافة الخدمة
                                 </button>
                             </form>
                         </div>
                     </div>
                     <div class="col-md-7">
-                        <h6 class="fw-bold mb-3">الخدمات المتاحة حالياً بالحجز (<%= services ? services.length : 0 %>)</h6>
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="fw-bold mb-0">الخدمات المتاحة حالياً بالحجز (<%= services ? services.length : 0 %>)</h6>
+                            <span class="text-muted small">تظهر مباشرة في قائمة الحجز للمرضى</span>
+                        </div>
                         <div class="d-flex flex-wrap gap-2">
                             <% if (typeof services !== 'undefined') { %>
                                 <% services.forEach(srv => { %>
@@ -4503,61 +4685,113 @@ export class WhatsAppNotificationService {
                 </div>
             </div>
 
-            <!-- 4. تبويب جدول المواعيد الافتراضي -->
-            <div class="tab-pane fade" id="slots-panel" role="tabpanel">
-                <div class="row g-4 mb-4">
-                    <div class="col-md-6">
-                        <div class="card border rounded-3 p-3 bg-light h-100">
-                            <h6 class="fw-bold mb-3"><i class="bi bi-magic me-1 text-warning"></i> توليد أوقات منتظمة تلقائياً</h6>
-                            <p class="text-muted small">
-                                توليد فترتين: الصباحية (09:00 ص - 12:00 م) والمسائية (12:00 م - 06:00 م).
-                            </p>
-                            <div class="d-flex gap-2">
-                                <button type="button" class="btn btn-outline-primary btn-sm rounded-pill px-3" onclick="generateSlotsAjax(30)">
-                                    توليد بفارق 30 دقيقة
-                                </button>
-                                <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3" onclick="generateSlotsAjax(15)">
-                                    توليد بفارق 15 دقيقة
-                                </button>
-                            </div>
+            <!-- 4. تبويب إعدادات الورديات والمواعيد (Two-Shift Schedule & Settings) -->
+            <div class="tab-pane fade" id="settings-panel" role="tabpanel">
+                <div class="card border-0 rounded-4 shadow-sm p-4 mb-4" style="background: linear-gradient(135deg, #f0fdf4 0%, #e0f2fe 100%);">
+                    <div class="d-flex align-items-center gap-3 mb-2">
+                        <div class="bg-success text-white p-2 rounded-circle d-flex align-items-center justify-content-center" style="width: 44px; height: 44px;">
+                            <i class="bi bi-clock-history fs-4"></i>
                         </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="card border rounded-3 p-3 bg-light h-100">
-                            <h6 class="fw-bold mb-3"><i class="bi bi-plus-circle me-1 text-primary"></i> إضافة وقت يدوي</h6>
-                            <form onsubmit="addSlotAjax(event)" class="row g-2 align-items-end">
-                                <div class="col-7">
-                                    <label class="form-label small fw-semibold">الوقت (مثال: 02:30 م)</label>
-                                    <input id="newSlotTimeInput" class="form-control form-control-sm" placeholder="02:30 م" required />
-                                </div>
-                                <div class="col-5">
-                                    <button type="submit" class="btn btn-primary btn-sm rounded-pill w-100">
-                                        <i class="bi bi-plus"></i> إضافة
-                                    </button>
-                                </div>
-                            </form>
+                        <div>
+                            <h5 class="fw-bold text-dark mb-0">نظام الورديتين المعتمد وفاصل المواعيد الإلزامي</h5>
+                            <span class="text-secondary small">تم إلغاء التوليد التلقائي القديم، واعتماد ورديتين يومياً بفاصل زمني إلزامي مدته ساعة كاملة (60 دقيقة)</span>
                         </div>
                     </div>
                 </div>
 
-                <div class="row g-2" id="configuredSlotsGrid">
-                    <% if (typeof configuredSlots !== 'undefined') { %>
-                        <% configuredSlots.forEach(slot => { %>
-                            <div class="col-6 col-sm-4 col-md-3 col-xl-2" id="slot-card-<%= slot.time.replace(/[^a-zA-Z0-9]/g, '_') %>">
-                                <div class="slot-pill-manage <%= slot.isAvailable ? '' : 'disabled-slot' %>">
-                                    <span class="fw-bold small"><%= slot.time %></span>
-                                    <div class="d-flex align-items-center gap-1">
-                                        <button type="button" class="btn btn-sm btn-link p-0 <%= slot.isAvailable ? 'text-success' : 'text-secondary' %>" onclick="toggleSlotAjax('<%= slot.time %>')" title="تفعيل/تعطيل">
-                                            <i class="bi <%= slot.isAvailable ? 'bi-toggle-on fs-5' : 'bi-toggle-off fs-5' %>"></i>
-                                        </button>
-                                        <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-1" onclick="deleteSlotAjax('<%= slot.time %>')" title="حذف">
-                                            <i class="bi bi-x-circle"></i>
-                                        </button>
+                <div class="row g-4 mb-4">
+                    <!-- Morning Shift Card -->
+                    <div class="col-md-6">
+                        <div class="card border-2 border-primary-subtle rounded-3 p-4 bg-white h-100 shadow-sm">
+                            <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+                                <h6 class="fw-bold text-primary mb-0 fs-5">
+                                    <i class="bi bi-sunrise-fill text-warning me-2"></i> الوردية الصباحية (Morning Shift)
+                                </h6>
+                                <span class="badge bg-primary px-3 py-1 rounded-pill">09:00 ص - 12:00 م</span>
+                            </div>
+                            <p class="text-muted small mb-3">
+                                تتضمن 3 مواعيد كشف ثابتة بفاصل ساعة كاملة بين كل كشف وآخر:
+                            </p>
+                            <div class="row g-2">
+                                <div class="col-4">
+                                    <div class="p-2 border rounded-3 bg-light text-center fw-bold text-dark small">
+                                        <i class="bi bi-clock me-1 text-primary"></i> 09:00 ص
+                                        <div class="text-muted" style="font-size: 0.7rem;">(09:00 - 10:00)</div>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="p-2 border rounded-3 bg-light text-center fw-bold text-dark small">
+                                        <i class="bi bi-clock me-1 text-primary"></i> 10:00 ص
+                                        <div class="text-muted" style="font-size: 0.7rem;">(10:00 - 11:00)</div>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="p-2 border rounded-3 bg-light text-center fw-bold text-dark small">
+                                        <i class="bi bi-clock me-1 text-primary"></i> 11:00 ص
+                                        <div class="text-muted" style="font-size: 0.7rem;">(11:00 - 12:00)</div>
                                     </div>
                                 </div>
                             </div>
-                        <% }); %>
-                    <% } %>
+                        </div>
+                    </div>
+
+                    <!-- Evening Shift Card -->
+                    <div class="col-md-6">
+                        <div class="card border-2 border-info-subtle rounded-3 p-4 bg-white h-100 shadow-sm">
+                            <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+                                <h6 class="fw-bold text-info-emphasis mb-0 fs-5">
+                                    <i class="bi bi-sunset-fill text-danger me-2"></i> الوردية المسائية (Evening Shift)
+                                </h6>
+                                <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle px-3 py-1 rounded-pill">12:00 م - 06:00 م</span>
+                            </div>
+                            <p class="text-muted small mb-3">
+                                تتضمن 6 مواعيد كشف ثابتة بفاصل ساعة كاملة بين كل كشف وآخر:
+                            </p>
+                            <div class="row g-2">
+                                <div class="col-4">
+                                    <div class="p-2 border rounded-3 bg-light text-center fw-bold text-dark small">
+                                        <i class="bi bi-clock me-1 text-info"></i> 12:00 م
+                                        <div class="text-muted" style="font-size: 0.7rem;">(12:00 - 01:00)</div>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="p-2 border rounded-3 bg-light text-center fw-bold text-dark small">
+                                        <i class="bi bi-clock me-1 text-info"></i> 01:00 م
+                                        <div class="text-muted" style="font-size: 0.7rem;">(01:00 - 02:00)</div>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="p-2 border rounded-3 bg-light text-center fw-bold text-dark small">
+                                        <i class="bi bi-clock me-1 text-info"></i> 02:00 م
+                                        <div class="text-muted" style="font-size: 0.7rem;">(02:00 - 03:00)</div>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="p-2 border rounded-3 bg-light text-center fw-bold text-dark small">
+                                        <i class="bi bi-clock me-1 text-info"></i> 03:00 م
+                                        <div class="text-muted" style="font-size: 0.7rem;">(03:00 - 04:00)</div>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="p-2 border rounded-3 bg-light text-center fw-bold text-dark small">
+                                        <i class="bi bi-clock me-1 text-info"></i> 04:00 م
+                                        <div class="text-muted" style="font-size: 0.7rem;">(04:00 - 05:00)</div>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="p-2 border rounded-3 bg-light text-center fw-bold text-dark small">
+                                        <i class="bi bi-clock me-1 text-info"></i> 05:00 م
+                                        <div class="text-muted" style="font-size: 0.7rem;">(05:00 - 06:00)</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-3 border rounded-3 bg-light text-muted small">
+                    <i class="bi bi-info-circle-fill text-primary me-1"></i>
+                    <strong>قواعد الجدولة:</strong> لتخصيص جدول أي طبيب معين أو تحديد أيام عمله والوردية الخاصة به (صباحية أو مسائية أو كلتيهما)، يرجى الذهاب إلى تبويب <strong>أطباء المركز والمناوبات</strong> والضغط على زر <strong>الجدول</strong> لكل طبيب لاستخدام واجهة الاختيار السريع (Quick-Select).
                 </div>
             </div>
         </div>
@@ -4683,61 +4917,260 @@ export class WhatsAppNotificationService {
     </div>
 </div>
 
-<!-- Modal 2: جدول وساعات ومواعيد عمل الطبيب -->
+<!-- Modal 2: جدول وساعات ومواعيد عمل الطبيب بنظام الاختيار السريع (Quick-Select) -->
 <div class="modal fade" id="doctorScheduleModal" tabindex="-1" aria-labelledby="doctorScheduleModalLabel" aria-hidden="true" style="direction: rtl; text-align: right;">
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content border-0 shadow-lg rounded-4">
             <div class="modal-header bg-dark text-white rounded-top-4 d-flex justify-content-between align-items-center w-100" style="direction: rtl;">
                 <h5 class="modal-title fw-bold m-0 flex-grow-1 text-end" id="doctorScheduleModalLabel">
-                    <i class="bi bi-calendar2-week-fill text-warning me-2"></i> جدول وساعات عمل الطبيب
+                    <i class="bi bi-calendar2-week-fill text-warning me-2"></i> ضبط جدول الورديات وأيام عمل الطبيب
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="إغلاق" style="margin-right: auto !important; margin-left: 0 !important;"></button>
             </div>
             <form id="doctorScheduleForm" onsubmit="submitDoctorScheduleAjax(event)">
                 <input type="hidden" name="scheduleDoctorId" id="schedDocId" />
+                <input type="hidden" name="scheduleWorkingHours" id="schedWorkingHours" value="09:00 ص - 12:00 م | 12:00 م - 06:00 م" />
+                <input type="hidden" name="scheduleWorkingDays" id="schedWorkingDays" value="السبت - الخميس (الجمعة إجازة)" />
+
                 <div class="modal-body p-4">
                     <div id="scheduleModalAlert" class="alert d-none mb-3" role="alert"></div>
 
-                    <div class="row g-3 mb-4">
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold">نص ساعات العمل والدوام</label>
-                            <input name="scheduleWorkingHours" id="schedWorkingHours" class="form-control" placeholder="09:00 ص - 12:00 م | 12:00 م - 06:00 م" required />
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold">نص أيام العمل الأسبوعي</label>
-                            <input name="scheduleWorkingDays" id="schedWorkingDays" class="form-control" placeholder="السبت - الخميس (الجمعة إجازة)" required />
-                        </div>
-                    </div>
-
+                    <!-- 1. Quick-Select Shift Mode (نظام الورديات المعتمد) -->
                     <div class="mb-4">
-                        <label class="form-label fw-semibold d-block">يوم الإجازة الأسبوعية (يتم تعطيل المواعيد فيه تلقائياً)</label>
-                        <div class="d-flex flex-wrap gap-3">
-                            <div class="form-check">
-                                <input class="form-check-input" type="radio" name="scheduleOffDays" value="5" id="offDay5" checked />
-                                <label class="form-check-label" for="offDay5">الجمعة</label>
+                        <label class="form-label fw-bold text-dark d-flex align-items-center justify-content-between">
+                            <span><i class="bi bi-clock-history text-primary me-1"></i> 1. تحديد وردية عمل الطبيب (Quick-Select Shift)</span>
+                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle">فاصل ساعة إلزامي</span>
+                        </label>
+                        <div class="row g-2">
+                            <div class="col-md-4">
+                                <div class="border rounded-3 p-3 bg-light text-center shift-option-card" id="shiftCardMorning" onclick="selectShiftPreset('morning')" style="cursor: pointer;">
+                                    <div class="form-check form-check-inline m-0">
+                                        <input class="form-check-input" type="radio" name="shiftPresetRadio" id="radioShiftMorning" value="morning">
+                                        <label class="form-check-label fw-bold text-primary" for="radioShiftMorning">
+                                            <i class="bi bi-sunrise-fill text-warning me-1"></i> الوردية الصباحية
+                                        </label>
+                                    </div>
+                                    <div class="small text-muted mt-1 font-monospace">09:00 ص - 12:00 م</div>
+                                    <span class="badge bg-white text-secondary border mt-1" style="font-size: 0.7rem;">3 مواعيد (ساعة/كشف)</span>
+                                </div>
                             </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="radio" name="scheduleOffDays" value="6" id="offDay6" />
-                                <label class="form-check-label" for="offDay6">السبت</label>
+                            <div class="col-md-4">
+                                <div class="border rounded-3 p-3 bg-light text-center shift-option-card" id="shiftCardEvening" onclick="selectShiftPreset('evening')" style="cursor: pointer;">
+                                    <div class="form-check form-check-inline m-0">
+                                        <input class="form-check-input" type="radio" name="shiftPresetRadio" id="radioShiftEvening" value="evening">
+                                        <label class="form-check-label fw-bold text-info-emphasis" for="radioShiftEvening">
+                                            <i class="bi bi-sunset-fill text-danger me-1"></i> الوردية المسائية
+                                        </label>
+                                    </div>
+                                    <div class="small text-muted mt-1 font-monospace">12:00 م - 06:00 م</div>
+                                    <span class="badge bg-white text-secondary border mt-1" style="font-size: 0.7rem;">6 مواعيد (ساعة/كشف)</span>
+                                </div>
                             </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="radio" name="scheduleOffDays" value="0" id="offDay0" />
-                                <label class="form-check-label" for="offDay0">الأحد</label>
+                            <div class="col-md-4">
+                                <div class="border rounded-3 p-3 bg-light text-center shift-option-card border-success" id="shiftCardBoth" onclick="selectShiftPreset('both')" style="cursor: pointer;">
+                                    <div class="form-check form-check-inline m-0">
+                                        <input class="form-check-input" type="radio" name="shiftPresetRadio" id="radioShiftBoth" value="both" checked>
+                                        <label class="form-check-label fw-bold text-success" for="radioShiftBoth">
+                                            <i class="bi bi-lightning-charge-fill text-warning me-1"></i> الورديتان معاً
+                                        </label>
+                                    </div>
+                                    <div class="small text-muted mt-1 font-monospace">09:00 ص - 06:00 م</div>
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle mt-1" style="font-size: 0.7rem;">9 مواعيد كاملة</span>
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold d-block mb-2">الأوقات المتاحة لهذا الطبيب في شاشة الحجز</label>
-                        <div class="row g-2" id="scheduleSlotsCheckboxContainer" style="max-height: 250px; overflow-y: auto;">
-                            <!-- Checkboxes will be populated dynamically -->
+                    <!-- 2. Quick-Select Active Working Days (أيام العمل والدوام) -->
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label class="form-label fw-bold text-dark mb-0">
+                                <i class="bi bi-calendar-check text-success me-1"></i> 2. تحديد أيام العمل الأسبوعية النشطة للطبيب
+                            </label>
+                            <div class="btn-group btn-group-sm">
+                                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="setWorkingDaysPreset('sat-thu')">السبت - الخميس</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="setWorkingDaysPreset('all-week')">كامل الأسبوع</button>
+                            </div>
                         </div>
+
+                        <div class="d-flex flex-wrap gap-2 p-3 bg-light rounded-3 border">
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input day-checkbox" type="checkbox" id="daySat" value="السبت" checked onchange="syncWorkingDays()">
+                                <label class="form-check-label fw-semibold" for="daySat">السبت</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input day-checkbox" type="checkbox" id="daySun" value="الأحد" checked onchange="syncWorkingDays()">
+                                <label class="form-check-label fw-semibold" for="daySun">الأحد</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input day-checkbox" type="checkbox" id="dayMon" value="الإثنين" checked onchange="syncWorkingDays()">
+                                <label class="form-check-label fw-semibold" for="dayMon">الإثنين</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input day-checkbox" type="checkbox" id="dayTue" value="الثلاثاء" checked onchange="syncWorkingDays()">
+                                <label class="form-check-label fw-semibold" for="dayTue">الثلاثاء</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input day-checkbox" type="checkbox" id="dayWed" value="الأربعاء" checked onchange="syncWorkingDays()">
+                                <label class="form-check-label fw-semibold" for="dayWed">الأربعاء</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input day-checkbox" type="checkbox" id="dayThu" value="الخميس" checked onchange="syncWorkingDays()">
+                                <label class="form-check-label fw-semibold" for="dayThu">الخميس</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input day-checkbox" type="checkbox" id="dayFri" value="الجمعة" onchange="syncWorkingDays()">
+                                <label class="form-check-label fw-semibold text-danger" for="dayFri">الجمعة (إجازة افتراضية)</label>
+                            </div>
+                        </div>
+                        <div class="text-muted small mt-1" id="workingDaysSummaryText">
+                            أيام العمل المحددة: السبت - الخميس (الجمعة إجازة)
+                        </div>
+                    </div>
+
+                    <!-- 3. Mandatory 1-Hour Interval Slots Grid -->
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label class="form-label fw-bold text-dark mb-0">
+                                <i class="bi bi-stopwatch text-warning me-1"></i> 3. مواعيد الكشف المتاحة (فاصل 60 دقيقة إلزامي بين كل كشف)
+                            </label>
+                            <span class="badge bg-success-subtle text-success border border-success-subtle">
+                                <i class="bi bi-check-circle me-1"></i>نظام الورديتين
+                            </span>
+                        </div>
+
+                        <!-- Morning Section -->
+                        <div class="p-3 bg-white rounded-3 border mb-3">
+                            <span class="fw-bold text-primary small d-block mb-2">
+                                <i class="bi bi-sunrise text-warning me-1"></i> مواعيد الوردية الصباحية (09:00 ص - 12:00 م)
+                            </span>
+                            <div class="row g-2" id="morningSlotsContainer">
+                                <div class="col-4">
+                                    <div class="form-check border rounded p-2 px-3 bg-light">
+                                        <input class="form-check-input slot-check slot-morning" type="checkbox" name="scheduleSelectedSlots" value="09:00 ص" id="slot_09_00" checked>
+                                        <label class="form-check-label fw-bold small" for="slot_09_00">09:00 ص</label>
+                                        <small class="text-muted d-block" style="font-size: 0.68rem;">(09:00 - 10:00)</small>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="form-check border rounded p-2 px-3 bg-light">
+                                        <input class="form-check-input slot-check slot-morning" type="checkbox" name="scheduleSelectedSlots" value="10:00 ص" id="slot_10_00" checked>
+                                        <label class="form-check-label fw-bold small" for="slot_10_00">10:00 ص</label>
+                                        <small class="text-muted d-block" style="font-size: 0.68rem;">(10:00 - 11:00)</small>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="form-check border rounded p-2 px-3 bg-light">
+                                        <input class="form-check-input slot-check slot-morning" type="checkbox" name="scheduleSelectedSlots" value="11:00 ص" id="slot_11_00" checked>
+                                        <label class="form-check-label fw-bold small" for="slot_11_00">11:00 ص</label>
+                                        <small class="text-muted d-block" style="font-size: 0.68rem;">(11:00 - 12:00)</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Evening Section -->
+                        <div class="p-3 bg-white rounded-3 border">
+                            <span class="fw-bold text-info-emphasis small d-block mb-2">
+                                <i class="bi bi-sunset text-danger me-1"></i> مواعيد الوردية المسائية (12:00 م - 06:00 م)
+                            </span>
+                            <div class="row g-2" id="eveningSlotsContainer">
+                                <div class="col-4">
+                                    <div class="form-check border rounded p-2 px-3 bg-light">
+                                        <input class="form-check-input slot-check slot-evening" type="checkbox" name="scheduleSelectedSlots" value="12:00 م" id="slot_12_00" checked>
+                                        <label class="form-check-label fw-bold small" for="slot_12_00">12:00 م</label>
+                                        <small class="text-muted d-block" style="font-size: 0.68rem;">(12:00 - 01:00)</small>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="form-check border rounded p-2 px-3 bg-light">
+                                        <input class="form-check-input slot-check slot-evening" type="checkbox" name="scheduleSelectedSlots" value="01:00 م" id="slot_01_00" checked>
+                                        <label class="form-check-label fw-bold small" for="slot_01_00">01:00 م</label>
+                                        <small class="text-muted d-block" style="font-size: 0.68rem;">(01:00 - 02:00)</small>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="form-check border rounded p-2 px-3 bg-light">
+                                        <input class="form-check-input slot-check slot-evening" type="checkbox" name="scheduleSelectedSlots" value="02:00 م" id="slot_02_00" checked>
+                                        <label class="form-check-label fw-bold small" for="slot_02_00">02:00 م</label>
+                                        <small class="text-muted d-block" style="font-size: 0.68rem;">(02:00 - 03:00)</small>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="form-check border rounded p-2 px-3 bg-light">
+                                        <input class="form-check-input slot-check slot-evening" type="checkbox" name="scheduleSelectedSlots" value="03:00 م" id="slot_03_00" checked>
+                                        <label class="form-check-label fw-bold small" for="slot_03_00">03:00 م</label>
+                                        <small class="text-muted d-block" style="font-size: 0.68rem;">(03:00 - 04:00)</small>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="form-check border rounded p-2 px-3 bg-light">
+                                        <input class="form-check-input slot-check slot-evening" type="checkbox" name="scheduleSelectedSlots" value="04:00 م" id="slot_04_00" checked>
+                                        <label class="form-check-label fw-bold small" for="slot_04_00">04:00 م</label>
+                                        <small class="text-muted d-block" style="font-size: 0.68rem;">(04:00 - 05:00)</small>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="form-check border rounded p-2 px-3 bg-light">
+                                        <input class="form-check-input slot-check slot-evening" type="checkbox" name="scheduleSelectedSlots" value="05:00 م" id="slot_05_00" checked>
+                                        <label class="form-check-label fw-bold small" for="slot_05_00">05:00 م</label>
+                                        <small class="text-muted d-block" style="font-size: 0.68rem;">(05:00 - 06:00)</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer bg-light rounded-bottom-4">
+                    <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" id="saveScheduleBtn" class="btn btn-primary rounded-pill px-4 shadow-sm">
+                        <i class="bi bi-save me-1"></i> حفظ جدول الورديات
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: إضافة كادر / موظف جديد -->
+<div class="modal fade" id="addStaffModal" tabindex="-1" aria-labelledby="addStaffModalLabel" aria-hidden="true" style="direction: rtl; text-align: right;">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header bg-success text-white rounded-top-4 d-flex justify-content-between align-items-center w-100" style="direction: rtl;">
+                <h5 class="modal-title fw-bold m-0 flex-grow-1 text-end" id="addStaffModalLabel">
+                    <i class="bi bi-person-plus-fill me-2"></i> إضافة موظف / كادر جديد
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="إغلاق" style="margin-right: auto !important; margin-left: 0 !important;"></button>
+            </div>
+            <form onsubmit="event.preventDefault(); alert('تم حفظ بيانات الموظف بنجاح.'); bootstrap.Modal.getInstance(document.getElementById('addStaffModal')).hide();">
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">اسم الموظف بالكامل</label>
+                        <input class="form-control" placeholder="مثال: د. إسلام شريف" required />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">الدور الوظيفي والصلاحيات</label>
+                        <select class="form-select">
+                            <option value="doctor">طبيب أسنان (Doctor)</option>
+                            <option value="receptionist">موظف استقبال (Receptionist)</option>
+                            <option value="assistant">مساعد طبيب وتعقيم (Assistant)</option>
+                            <option value="admin">مدير إداري / طبي (Admin)</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">البريد الإلكتروني / اسم الدخول</label>
+                        <input type="text" class="form-control font-monospace" placeholder="username" required />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">كلمة المرور الأولية</label>
+                        <input type="password" class="form-control font-monospace" value="DentalCity2026@" required />
                     </div>
                 </div>
                 <div class="modal-footer bg-light rounded-bottom-4">
                     <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">إلغاء</button>
-                    <button type="submit" id="saveScheduleBtn" class="btn btn-primary rounded-pill px-4 shadow-sm">
-                        <i class="bi bi-save me-1"></i> حفظ جدول المواعيد
+                    <button type="submit" class="btn btn-success rounded-pill px-4 shadow-sm">
+                        <i class="bi bi-save me-1"></i> حفظ وتفعيل الحساب
                     </button>
                 </div>
             </form>
@@ -4849,35 +5282,128 @@ export class WhatsAppNotificationService {
         if (doctorModalInstance) doctorModalInstance.show();
     }
 
-    function openDoctorScheduleModal(id, name, hours, days, offDay, slots) {
-        document.getElementById("doctorScheduleModalLabel").innerHTML = `<i class="bi bi-calendar2-week-fill text-warning me-2"></i> جدول عمل الطبيب (${name})`;
-        document.getElementById("schedDocId").value = id;
-        document.getElementById("schedWorkingHours").value = hours;
-        document.getElementById("schedWorkingDays").value = days;
-
-        const offRadio = document.getElementById("offDay" + offDay);
-        if (offRadio) offRadio.checked = true;
-
-        const container = document.getElementById("scheduleSlotsCheckboxContainer");
-        container.innerHTML = "";
-
-        const allSlots = <%- JSON.stringify((configuredSlots || []).map(s => s.time)) %>;
-        const currentSlots = Array.isArray(slots) ? slots : [];
-
-        allSlots.forEach(time => {
-            const isChecked = currentSlots.includes(time);
-            const col = document.createElement("div");
-            col.className = "col-6 col-sm-4";
-            col.innerHTML = `
-                <div class="form-check border rounded p-2 px-3 bg-white">
-                    <input class="form-check-input" type="checkbox" name="scheduleSelectedSlots" value="${time}" id="chk_${time.replace(/[^a-zA-Z0-9]/g, '_')}" ${isChecked ? 'checked' : ''}>
-                    <label class="form-check-label fw-semibold small" for="chk_${time.replace(/[^a-zA-Z0-9]/g, '_')}">${time}</label>
-                </div>
-            `;
-            container.appendChild(col);
+    function selectShiftPreset(mode) {
+        const morningCard = document.getElementById("shiftCardMorning");
+        const eveningCard = document.getElementById("shiftCardEvening");
+        const bothCard = document.getElementById("shiftCardBoth");
+        
+        [morningCard, eveningCard, bothCard].forEach(c => {
+            if (c) c.classList.remove("border-primary", "border-info", "border-success", "bg-white");
         });
 
+        const morningChecks = document.querySelectorAll(".slot-morning");
+        const eveningChecks = document.querySelectorAll(".slot-evening");
+        const schedHoursInput = document.getElementById("schedWorkingHours");
+
+        if (mode === "morning") {
+            const radio = document.getElementById("radioShiftMorning");
+            if (radio) radio.checked = true;
+            if (morningCard) morningCard.classList.add("border-primary", "bg-white");
+            morningChecks.forEach(c => c.checked = true);
+            eveningChecks.forEach(c => c.checked = false);
+            if (schedHoursInput) schedHoursInput.value = "09:00 ص - 12:00 م";
+        } else if (mode === "evening") {
+            const radio = document.getElementById("radioShiftEvening");
+            if (radio) radio.checked = true;
+            if (eveningCard) eveningCard.classList.add("border-info", "bg-white");
+            morningChecks.forEach(c => c.checked = false);
+            eveningChecks.forEach(c => c.checked = true);
+            if (schedHoursInput) schedHoursInput.value = "12:00 م - 06:00 م";
+        } else {
+            const radio = document.getElementById("radioShiftBoth");
+            if (radio) radio.checked = true;
+            if (bothCard) bothCard.classList.add("border-success", "bg-white");
+            morningChecks.forEach(c => c.checked = true);
+            eveningChecks.forEach(c => c.checked = true);
+            if (schedHoursInput) schedHoursInput.value = "09:00 ص - 12:00 م | 12:00 م - 06:00 م";
+        }
+    }
+
+    function setWorkingDaysPreset(preset) {
+        const sat = document.getElementById("daySat");
+        const sun = document.getElementById("daySun");
+        const mon = document.getElementById("dayMon");
+        const tue = document.getElementById("dayTue");
+        const wed = document.getElementById("dayWed");
+        const thu = document.getElementById("dayThu");
+        const fri = document.getElementById("dayFri");
+
+        if (preset === 'sat-thu') {
+            [sat, sun, mon, tue, wed, thu].forEach(d => { if (d) d.checked = true; });
+            if (fri) fri.checked = false;
+        } else if (preset === 'all-week') {
+            [sat, sun, mon, tue, wed, thu, fri].forEach(d => { if (d) d.checked = true; });
+        }
+        syncWorkingDays();
+    }
+
+    function syncWorkingDays() {
+        const checkedDays = Array.from(document.querySelectorAll(".day-checkbox:checked")).map(c => c.value);
+        const schedDaysInput = document.getElementById("schedWorkingDays");
+        const summaryText = document.getElementById("workingDaysSummaryText");
+
+        let text = "";
+        if (checkedDays.length === 7) {
+            text = "طوال أيام الأسبوع (السبت - الجمعة)";
+        } else if (checkedDays.length === 6 && !checkedDays.includes("الجمعة")) {
+            text = "السبت - الخميس (الجمعة إجازة)";
+        } else if (checkedDays.length > 0) {
+            text = checkedDays.join("، ");
+        } else {
+            text = "لم يتم تحديد أيام عمل";
+        }
+
+        if (schedDaysInput) schedDaysInput.value = text;
+        if (summaryText) summaryText.textContent = "أيام العمل المحددة: " + text;
+    }
+
+    function openDoctorScheduleModal(id, name, hours, days, offDay, slots) {
+        document.getElementById("doctorScheduleModalLabel").innerHTML = `<i class="bi bi-calendar2-week-fill text-warning me-2"></i> ضبط جدول الورديات (${name})`;
+        document.getElementById("schedDocId").value = id;
+        document.getElementById("schedWorkingHours").value = hours || "09:00 ص - 12:00 م | 12:00 م - 06:00 م";
+        document.getElementById("schedWorkingDays").value = days || "السبت - الخميس (الجمعة إجازة)";
+
+        const daysStr = days || "";
+        const isAllWeek = daysStr.includes("كامل الأسبوع") || daysStr.includes("طوال");
+        const isSatThu = daysStr.includes("السبت - الخميس") || daysStr.includes("الجمعة إجازة");
+
+        if (isAllWeek) {
+            setWorkingDaysPreset('all-week');
+        } else if (isSatThu || !daysStr) {
+            setWorkingDaysPreset('sat-thu');
+        } else {
+            document.querySelectorAll(".day-checkbox").forEach(chk => {
+                chk.checked = daysStr.includes(chk.value) || (chk.value === 'الإثنين' && daysStr.includes('الاثنين'));
+            });
+            syncWorkingDays();
+        }
+
+        const currentSlots = Array.isArray(slots) ? slots : [];
+        const hasMorning = currentSlots.some(s => s.includes("ص") || s.startsWith("09:") || s.startsWith("10:") || s.startsWith("11:"));
+        const hasEvening = currentSlots.some(s => s.includes("م") || s.startsWith("12:") || s.startsWith("01:") || s.startsWith("02:") || s.startsWith("03:") || s.startsWith("04:") || s.startsWith("05:"));
+
+        if (hasMorning && !hasEvening) {
+            selectShiftPreset('morning');
+        } else if (!hasMorning && hasEvening) {
+            selectShiftPreset('evening');
+        } else {
+            selectShiftPreset('both');
+        }
+
+        if (currentSlots.length > 0) {
+            document.querySelectorAll(".slot-check").forEach(chk => {
+                chk.checked = currentSlots.some(s => s.trim() === chk.value.trim());
+            });
+        }
+
         if (doctorScheduleModalInstance) doctorScheduleModalInstance.show();
+    }
+
+    function openAddStaffModal() {
+        const modalEl = document.getElementById("addStaffModal");
+        if (modalEl && typeof bootstrap !== 'undefined') {
+            bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        }
     }
 
     function openChangePasswordModal() {
