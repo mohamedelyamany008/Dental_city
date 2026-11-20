@@ -25,6 +25,8 @@
   --dc-brand-secondary-light: #ccfbf1;
   --dc-brand-accent: #38bdf8;
   
+  --dc-patient-data-color: #0000FF;
+
   --dc-input-bg: #ffffff;
   --dc-input-border: #cbd5e1;
   --dc-input-text: #0f172a;
@@ -56,6 +58,8 @@
   --dc-brand-secondary: #2dd4bf;
   --dc-brand-secondary-light: rgba(45, 212, 191, 0.15);
   --dc-brand-accent: #38bdf8;
+
+  --dc-patient-data-color: #FFFFFF !important;
 
   --dc-input-bg: #0f172a;
   --dc-input-border: #334155;
@@ -2330,4 +2334,116 @@ body.dark-mode #patientBookingDetailsModal h5,
 body.dark-mode #patientBookingDetailsModal .text-dark {
   color: #f8fafc !important;
 }
+
+/* ==========================================================================
+   Dynamic Text Color Styling for Patient Data Fields
+   Light Mode: Bold Blue (#0000FF)
+   Dark Mode: Pure White (#FFFFFF)
+   ========================================================================== */
+.patient-data-value,
+.patient-name-text,
+.patient-phone-text,
+.info-card-value,
+.summary-value,
+#pbmPatientName,
+#pbmPhone,
+#pbmDate,
+#pbmTime,
+#pbmService,
+#pbmNotes,
+#pmPatientName,
+#pmPatientPhone,
+#pmDateTime,
+#pmServiceName,
+#pmPatientNotes {
+  color: var(--dc-patient-data-color, #0000FF) !important;
+  font-weight: 700;
+}
+
+[data-bs-theme="light"] .patient-data-value,
+[data-bs-theme="light"] .patient-name-text,
+[data-bs-theme="light"] .patient-phone-text,
+[data-bs-theme="light"] .info-card-value,
+[data-bs-theme="light"] .summary-value,
+[data-bs-theme="light"] #pbmPatientName,
+[data-bs-theme="light"] #pbmPhone,
+[data-bs-theme="light"] #pbmDate,
+[data-bs-theme="light"] #pbmTime,
+[data-bs-theme="light"] #pbmService,
+[data-bs-theme="light"] #pbmNotes,
+[data-bs-theme="light"] #pmPatientName,
+[data-bs-theme="light"] #pmPatientPhone,
+[data-bs-theme="light"] #pmDateTime,
+[data-bs-theme="light"] #pmServiceName,
+[data-bs-theme="light"] #pmPatientNotes,
+body:not([data-bs-theme="dark"]):not([data-theme="dark"]):not(.dark-mode) .patient-data-value,
+body:not([data-bs-theme="dark"]):not([data-theme="dark"]):not(.dark-mode) .patient-name-text,
+body:not([data-bs-theme="dark"]):not([data-theme="dark"]):not(.dark-mode) .patient-phone-text,
+body:not([data-bs-theme="dark"]):not([data-theme="dark"]):not(.dark-mode) .info-card-value,
+body:not([data-bs-theme="dark"]):not([data-theme="dark"]):not(.dark-mode) .summary-value,
+body:not([data-bs-theme="dark"]):not([data-theme="dark"]):not(.dark-mode) #pbmPatientName,
+body:not([data-bs-theme="dark"]):not([data-theme="dark"]):not(.dark-mode) #pbmPhone,
+body:not([data-bs-theme="dark"]):not([data-theme="dark"]):not(.dark-mode) #pbmDate,
+body:not([data-bs-theme="dark"]):not([data-theme="dark"]):not(.dark-mode) #pbmTime,
+body:not([data-bs-theme="dark"]):not([data-theme="dark"]):not(.dark-mode) #pbmService,
+body:not([data-bs-theme="dark"]):not([data-theme="dark"]):not(.dark-mode) #pbmNotes,
+body:not([data-bs-theme="dark"]):not([data-theme="dark"]):not(.dark-mode) #pmPatientName,
+body:not([data-bs-theme="dark"]):not([data-theme="dark"]):not(.dark-mode) #pmPatientPhone,
+body:not([data-bs-theme="dark"]):not([data-theme="dark"]):not(.dark-mode) #pmDateTime,
+body:not([data-bs-theme="dark"]):not([data-theme="dark"]):not(.dark-mode) #pmServiceName,
+body:not([data-bs-theme="dark"]):not([data-theme="dark"]):not(.dark-mode) #pmPatientNotes {
+  color: #0000FF !important;
+}
+
+[data-bs-theme="dark"] .patient-data-value,
+[data-bs-theme="dark"] .patient-name-text,
+[data-bs-theme="dark"] .patient-phone-text,
+[data-bs-theme="dark"] .info-card-value,
+[data-bs-theme="dark"] .summary-value,
+[data-bs-theme="dark"] #pbmPatientName,
+[data-bs-theme="dark"] #pbmPhone,
+[data-bs-theme="dark"] #pbmDate,
+[data-bs-theme="dark"] #pbmTime,
+[data-bs-theme="dark"] #pbmService,
+[data-bs-theme="dark"] #pbmNotes,
+[data-bs-theme="dark"] #pmPatientName,
+[data-bs-theme="dark"] #pmPatientPhone,
+[data-bs-theme="dark"] #pmDateTime,
+[data-bs-theme="dark"] #pmServiceName,
+[data-bs-theme="dark"] #pmPatientNotes,
+[data-theme="dark"] .patient-data-value,
+[data-theme="dark"] .patient-name-text,
+[data-theme="dark"] .patient-phone-text,
+[data-theme="dark"] .info-card-value,
+[data-theme="dark"] .summary-value,
+[data-theme="dark"] #pbmPatientName,
+[data-theme="dark"] #pbmPhone,
+[data-theme="dark"] #pbmDate,
+[data-theme="dark"] #pbmTime,
+[data-theme="dark"] #pbmService,
+[data-theme="dark"] #pbmNotes,
+[data-theme="dark"] #pmPatientName,
+[data-theme="dark"] #pmPatientPhone,
+[data-theme="dark"] #pmDateTime,
+[data-theme="dark"] #pmServiceName,
+[data-theme="dark"] #pmPatientNotes,
+body.dark-mode .patient-data-value,
+body.dark-mode .patient-name-text,
+body.dark-mode .patient-phone-text,
+body.dark-mode .info-card-value,
+body.dark-mode .summary-value,
+body.dark-mode #pbmPatientName,
+body.dark-mode #pbmPhone,
+body.dark-mode #pbmDate,
+body.dark-mode #pbmTime,
+body.dark-mode #pbmService,
+body.dark-mode #pbmNotes,
+body.dark-mode #pmPatientName,
+body.dark-mode #pmPatientPhone,
+body.dark-mode #pmDateTime,
+body.dark-mode #pmServiceName,
+body.dark-mode #pmPatientNotes {
+  color: #FFFFFF !important;
+}
+
 

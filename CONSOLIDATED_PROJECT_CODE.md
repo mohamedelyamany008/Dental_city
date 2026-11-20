@@ -1,5 +1,5 @@
 # ملف الكود البرمجي الشامل لمشروع مركز دينتال سيتي (Dental City)
-> **تاريخ التجميع:** ٢١‏/١١‏/٢٠٢٦، ١٢:٠٩:١٧ ص
+> **تاريخ التجميع:** ٢١‏/١١‏/٢٠٢٦، ١:٠١:١٤ ص
 > **البيئة:** Node.js (TypeScript) + Express + EJS + Supabase (PostgreSQL)
 > **ملاحظة:** تم تجميع كل ملفات المشروع البرمجية في هذا المستند للعرض والمراجعة والنسخ بسهولة دون المساس أو التعديل بأي من الملفات الأصلية.
 
@@ -3549,8 +3549,8 @@ export class WhatsAppNotificationService {
 ### واجهة حجز المواعيد (book.ejs)
 
 - **المسار:** `Dental city/src/views/appointments/book.ejs`
-- **عدد الأسطر:** 883 سطر
-- **الحجم:** 46.3 KB
+- **عدد الأسطر:** 903 سطر
+- **الحجم:** 47.0 KB
 
 ````html
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
@@ -3724,15 +3724,35 @@ export class WhatsAppNotificationService {
         color: #94a3b8 !important;
     }
 
-    .summary-value {
-        font-weight: 600;
-        color: #0f172a;
+    :root {
+        --dc-patient-data-color: #0000FF;
+    }
+    [data-bs-theme="dark"],
+    [data-theme="dark"],
+    body.dark-mode {
+        --dc-patient-data-color: #FFFFFF !important;
+    }
+
+    .summary-value,
+    .patient-data-value {
+        font-weight: 700;
+        color: var(--dc-patient-data-color, #0000FF) !important;
+    }
+
+    [data-bs-theme="light"] .summary-value,
+    [data-bs-theme="light"] .patient-data-value,
+    body:not([data-bs-theme="dark"]):not([data-theme="dark"]):not(.dark-mode) .summary-value,
+    body:not([data-bs-theme="dark"]):not([data-theme="dark"]):not(.dark-mode) .patient-data-value {
+        color: #0000FF !important;
     }
 
     [data-bs-theme="dark"] .summary-value,
+    [data-bs-theme="dark"] .patient-data-value,
     [data-theme="dark"] .summary-value,
-    body.dark-mode .summary-value {
-        color: #f8fafc !important;
+    [data-theme="dark"] .patient-data-value,
+    body.dark-mode .summary-value,
+    body.dark-mode .patient-data-value {
+        color: #FFFFFF !important;
     }
 
     .btn-submit-booking {
@@ -4442,8 +4462,8 @@ export class WhatsAppNotificationService {
 ### واجهة تأكيد الحجز (confirmation.ejs)
 
 - **المسار:** `Dental city/src/views/appointments/confirmation.ejs`
-- **عدد الأسطر:** 225 سطر
-- **الحجم:** 9.3 KB
+- **عدد الأسطر:** 286 سطر
+- **الحجم:** 11.4 KB
 
 ````html
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
@@ -4505,10 +4525,71 @@ export class WhatsAppNotificationService {
         gap: 0.4rem;
     }
 
-    .info-card-value {
+    :root {
+        --dc-patient-data-color: #0000FF;
+    }
+    [data-bs-theme="dark"],
+    [data-theme="dark"],
+    body.dark-mode {
+        --dc-patient-data-color: #FFFFFF !important;
+    }
+
+    .info-card-value,
+    .patient-data-value {
         font-size: 1.1rem;
         font-weight: 700;
-        color: #0f172a;
+        color: var(--dc-patient-data-color, #0000FF) !important;
+    }
+
+    [data-bs-theme="light"] .info-card-value,
+    [data-bs-theme="light"] .patient-data-value,
+    body:not([data-bs-theme="dark"]):not([data-theme="dark"]):not(.dark-mode) .info-card-value,
+    body:not([data-bs-theme="dark"]):not([data-theme="dark"]):not(.dark-mode) .patient-data-value {
+        color: #0000FF !important;
+    }
+
+    [data-bs-theme="dark"] .info-card-value,
+    [data-bs-theme="dark"] .patient-data-value,
+    [data-theme="dark"] .info-card-value,
+    [data-theme="dark"] .patient-data-value,
+    body.dark-mode .info-card-value,
+    body.dark-mode .patient-data-value {
+        color: #FFFFFF !important;
+    }
+
+    /* Dark Mode Containers for Confirmation Screen */
+    [data-bs-theme="dark"] .ticket-card,
+    [data-theme="dark"] .ticket-card,
+    body.dark-mode .ticket-card {
+        background: #1e293b !important;
+        border-color: #334155 !important;
+    }
+
+    [data-bs-theme="dark"] .info-card,
+    [data-theme="dark"] .info-card,
+    body.dark-mode .info-card {
+        background-color: #0f172a !important;
+        border-color: #334155 !important;
+    }
+
+    [data-bs-theme="dark"] .info-card-label,
+    [data-theme="dark"] .info-card-label,
+    body.dark-mode .info-card-label {
+        color: #94a3b8 !important;
+    }
+
+    [data-bs-theme="dark"] .reference-box,
+    [data-theme="dark"] .reference-box,
+    body.dark-mode .reference-box {
+        background: #0f172a !important;
+        border-color: #10b981 !important;
+    }
+
+    [data-bs-theme="dark"] .patient-notes-box,
+    [data-theme="dark"] .patient-notes-box,
+    body.dark-mode .patient-notes-box {
+        background-color: #0f172a !important;
+        border-color: #334155 !important;
     }
 
     @media print {
@@ -4558,14 +4639,14 @@ export class WhatsAppNotificationService {
                         <div class="info-card-label">
                             <i class="bi bi-person-fill text-primary"></i> اسم المريض
                         </div>
-                        <div class="info-card-value"><%= booking.patient_name %></div>
+                        <div class="info-card-value patient-data-value"><%= booking.patient_name %></div>
                     </div>
 
                     <div class="info-card">
                         <div class="info-card-label">
                             <i class="bi bi-telephone-fill text-primary"></i> رقم الهاتف
                         </div>
-                        <div class="info-card-value"><%= booking.patient_phone %></div>
+                        <div class="info-card-value patient-data-value font-monospace" dir="ltr"><%= booking.patient_phone %></div>
                     </div>
 
                     <% if (booking.gender) { %>
@@ -4573,7 +4654,7 @@ export class WhatsAppNotificationService {
                         <div class="info-card-label">
                             <i class="bi bi-gender-ambiguous text-primary"></i> النوع
                         </div>
-                        <div class="info-card-value"><%= booking.gender %></div>
+                        <div class="info-card-value patient-data-value"><%= booking.gender %></div>
                     </div>
                     <% } %>
 
@@ -4582,7 +4663,7 @@ export class WhatsAppNotificationService {
                         <div class="info-card-label">
                             <i class="bi bi-calendar-event text-primary"></i> تاريخ الميلاد / السن
                         </div>
-                        <div class="info-card-value">
+                        <div class="info-card-value patient-data-value">
                             <%= booking.birth_date || '' %>
                             <% if (booking.age) { %> (<%= booking.age %> سنة)<% } %>
                         </div>
@@ -4593,7 +4674,7 @@ export class WhatsAppNotificationService {
                         <div class="info-card-label">
                             <i class="bi bi-heart-pulse text-danger"></i> الطبيب المعالج
                         </div>
-                        <div class="info-card-value text-primary"><%= booking.doctor_name %></div>
+                        <div class="info-card-value patient-data-value"><%= booking.doctor_name %></div>
                         <small class="text-muted d-block mt-1"><%= booking.doctor_specialty %></small>
                     </div>
 
@@ -4601,21 +4682,21 @@ export class WhatsAppNotificationService {
                         <div class="info-card-label">
                             <i class="bi bi-calendar-check text-primary"></i> تاريخ الموعد
                         </div>
-                        <div class="info-card-value"><%= booking.appointment_date %></div>
+                        <div class="info-card-value patient-data-value"><%= booking.appointment_date %></div>
                     </div>
 
                     <div class="info-card">
                         <div class="info-card-label">
                             <i class="bi bi-clock-fill text-success"></i> وقت الموعد
                         </div>
-                        <div class="info-card-value text-success"><%= booking.appointment_time %></div>
+                        <div class="info-card-value patient-data-value"><%= booking.appointment_time %></div>
                     </div>
 
                     <div class="info-card">
                         <div class="info-card-label">
                             <i class="bi bi-shield-plus text-primary"></i> نوع الخدمة
                         </div>
-                        <div class="info-card-value"><%= booking.selected_service %></div>
+                        <div class="info-card-value patient-data-value"><%= booking.selected_service %></div>
                     </div>
 
                     <div class="info-card">
@@ -4631,11 +4712,11 @@ export class WhatsAppNotificationService {
                 </div>
 
                 <% if (booking.patient_notes) { %>
-                    <div class="p-3 bg-light rounded border mb-4">
+                    <div class="p-3 bg-light rounded border mb-4 patient-notes-box">
                         <span class="fw-semibold text-secondary d-block mb-1">
                             <i class="bi bi-chat-quote-fill me-1 text-primary"></i> ملاحظات الشكوى الطبية:
                         </span>
-                        <p class="mb-0 text-dark"><%= booking.patient_notes %></p>
+                        <p class="mb-0 patient-data-value"><%= booking.patient_notes %></p>
                     </div>
                 <% } %>
 
@@ -4881,8 +4962,8 @@ export class WhatsAppNotificationService {
 ### لوحة تحكم الطبيب والعيادة (dashboard.ejs)
 
 - **المسار:** `Dental city/src/views/doctor/dashboard.ejs`
-- **عدد الأسطر:** 4209 سطر
-- **الحجم:** 242.4 KB
+- **عدد الأسطر:** 4274 سطر
+- **الحجم:** 245.3 KB
 
 ````html
 <%
@@ -5305,6 +5386,71 @@ export class WhatsAppNotificationService {
     [data-bs-theme="dark"] .text-dark {
         color: #f8fafc !important;
     }
+
+    /* Dynamic Theme Adaptation for Patient Data Fields */
+    :root {
+        --dc-patient-data-color: #0000FF;
+    }
+    [data-bs-theme="dark"],
+    [data-theme="dark"],
+    body.dark-mode {
+        --dc-patient-data-color: #FFFFFF !important;
+    }
+    .patient-data-value,
+    .patient-name-text,
+    .patient-phone-text,
+    #pmPatientName,
+    #pmPatientPhone,
+    #pmDateTime,
+    #pmServiceName,
+    #pmPatientNotes {
+        color: var(--dc-patient-data-color, #0000FF) !important;
+        font-weight: 700;
+    }
+    [data-bs-theme="light"] .patient-data-value,
+    [data-bs-theme="light"] .patient-name-text,
+    [data-bs-theme="light"] .patient-phone-text,
+    [data-bs-theme="light"] #pmPatientName,
+    [data-bs-theme="light"] #pmPatientPhone,
+    [data-bs-theme="light"] #pmDateTime,
+    [data-bs-theme="light"] #pmServiceName,
+    [data-bs-theme="light"] #pmPatientNotes,
+    body:not([data-bs-theme="dark"]):not([data-theme="dark"]):not(.dark-mode) .patient-data-value,
+    body:not([data-bs-theme="dark"]):not([data-theme="dark"]):not(.dark-mode) .patient-name-text,
+    body:not([data-bs-theme="dark"]):not([data-theme="dark"]):not(.dark-mode) .patient-phone-text,
+    body:not([data-bs-theme="dark"]):not([data-theme="dark"]):not(.dark-mode) #pmPatientName,
+    body:not([data-bs-theme="dark"]):not([data-theme="dark"]):not(.dark-mode) #pmPatientPhone,
+    body:not([data-bs-theme="dark"]):not([data-theme="dark"]):not(.dark-mode) #pmDateTime,
+    body:not([data-bs-theme="dark"]):not([data-theme="dark"]):not(.dark-mode) #pmServiceName,
+    body:not([data-bs-theme="dark"]):not([data-theme="dark"]):not(.dark-mode) #pmPatientNotes {
+        color: #0000FF !important;
+    }
+    [data-bs-theme="dark"] .patient-data-value,
+    [data-bs-theme="dark"] .patient-name-text,
+    [data-bs-theme="dark"] .patient-phone-text,
+    [data-bs-theme="dark"] #pmPatientName,
+    [data-bs-theme="dark"] #pmPatientPhone,
+    [data-bs-theme="dark"] #pmDateTime,
+    [data-bs-theme="dark"] #pmServiceName,
+    [data-bs-theme="dark"] #pmPatientNotes,
+    [data-theme="dark"] .patient-data-value,
+    [data-theme="dark"] .patient-name-text,
+    [data-theme="dark"] .patient-phone-text,
+    [data-theme="dark"] #pmPatientName,
+    [data-theme="dark"] #pmPatientPhone,
+    [data-theme="dark"] #pmDateTime,
+    [data-theme="dark"] #pmServiceName,
+    [data-theme="dark"] #pmPatientNotes,
+    body.dark-mode .patient-data-value,
+    body.dark-mode .patient-name-text,
+    body.dark-mode .patient-phone-text,
+    body.dark-mode #pmPatientName,
+    body.dark-mode #pmPatientPhone,
+    body.dark-mode #pmDateTime,
+    body.dark-mode #pmServiceName,
+    body.dark-mode #pmPatientNotes {
+        color: #FFFFFF !important;
+    }
 </style>
 
 <div class="doctor-dash-wrapper py-3">
@@ -5626,8 +5772,8 @@ export class WhatsAppNotificationService {
                                             <td>
                                                 <span class="badge bg-primary font-monospace fw-bold px-2 py-1"><%= b.reference %></span>
                                             </td>
-                                            <td class="fw-bold text-dark"><%= b.patient_name %></td>
-                                            <td dir="ltr" class="text-end font-monospace text-muted small"><%= b.patient_phone %></td>
+                                            <td class="fw-bold patient-data-value patient-name-text"><%= b.patient_name %></td>
+                                            <td dir="ltr" class="text-end font-monospace small patient-data-value patient-phone-text"><%= b.patient_phone %></td>
                                             <td>
                                                 <span class="fw-semibold text-primary"><%= b.doctor_name %></span>
                                             </td>
@@ -5635,8 +5781,8 @@ export class WhatsAppNotificationService {
                                                 <span class="badge bg-light text-dark border"><%= b.selected_service %></span>
                                             </td>
                                             <td>
-                                                <span class="small fw-semibold"><%= b.appointment_date %></span>
-                                                <span class="badge bg-light text-muted border ms-1"><%= b.appointment_time %></span>
+                                                <span class="small fw-semibold patient-data-value"><%= b.appointment_date %></span>
+                                                <span class="badge bg-light border ms-1 patient-data-value"><%= b.appointment_time %></span>
                                             </td>
                                             <td>
                                                 <% if (b.status === 'مؤكد') { %>
@@ -5878,12 +6024,12 @@ export class WhatsAppNotificationService {
                                                         <%= pInitial %>
                                                     </div>
                                                     <div class="min-w-0">
-                                                        <div class="fw-bold text-dark text-truncate patient-name-text" title="<%= pName %>">
+                                                        <div class="fw-bold text-truncate patient-name-text patient-data-value" title="<%= pName %>">
                                                             <%= pName %>
                                                         </div>
                                                         <div class="small d-flex align-items-center gap-2 text-muted">
                                                             <% if (pPhone) { %>
-                                                                <span dir="ltr"><i class="bi bi-telephone text-primary me-1"></i><%= pPhone %></span>
+                                                                <span dir="ltr" class="patient-phone-text patient-data-value"><i class="bi bi-telephone text-primary me-1"></i><%= pPhone %></span>
                                                                 <a href="https://wa.me/<%= pCleanPhone %>?text=<%= encodeURIComponent('مرحباً بك من مركز دينتال سيتي بخصوص حجزك رقم: ' + b.reference) %>" 
                                                                    target="_blank" rel="noopener noreferrer" 
                                                                    class="text-success text-decoration-none small fw-semibold" title="محادثة واتساب فورية">
@@ -5913,8 +6059,8 @@ export class WhatsAppNotificationService {
 
                                             <!-- Date & Time -->
                                             <td>
-                                                <div class="fw-bold text-dark small"><i class="bi bi-calendar3 me-1 text-primary"></i><%= b.appointment_date %></div>
-                                                <div class="small text-muted"><i class="bi bi-clock me-1 text-primary"></i><%= b.appointment_time %></div>
+                                                <div class="fw-bold small patient-data-value"><i class="bi bi-calendar3 me-1 text-primary"></i><%= b.appointment_date %></div>
+                                                <div class="small patient-data-value"><i class="bi bi-clock me-1 text-primary"></i><%= b.appointment_time %></div>
                                             </td>
 
                                             <!-- Shift -->
@@ -7470,7 +7616,7 @@ export class WhatsAppNotificationService {
                                 م
                             </div>
                             <div>
-                                <h5 class="fw-bold text-dark mb-1" id="pmPatientName">-</h5>
+                                <h5 class="fw-bold mb-1 patient-data-value patient-name-text" id="pmPatientName">-</h5>
                                 <span class="badge bg-secondary rounded-pill" id="pmReferenceBadge">
                                     <i class="bi bi-hash me-1"></i><span id="pmReference">-</span>
                                 </span>
@@ -7487,8 +7633,8 @@ export class WhatsAppNotificationService {
                     <div class="col-md-6">
                         <div class="p-3 border rounded-3 bg-white h-100">
                             <label class="text-muted small d-block mb-1"><i class="bi bi-telephone-fill text-primary me-1"></i> رقم الهاتف المحمول</label>
-                            <div class="fw-bold text-dark d-flex align-items-center justify-content-between">
-                                <span id="pmPatientPhone">-</span>
+                            <div class="fw-bold d-flex align-items-center justify-content-between">
+                                <span id="pmPatientPhone" class="patient-data-value patient-phone-text">-</span>
                                 <a href="#" id="pmWhatsappBtn" target="_blank" class="btn btn-sm btn-outline-success rounded-pill px-2 py-1">
                                     <i class="bi bi-whatsapp"></i> واتساب
                                 </a>
@@ -7505,20 +7651,20 @@ export class WhatsAppNotificationService {
                     <div class="col-md-6">
                         <div class="p-3 border rounded-3 bg-white h-100">
                             <label class="text-muted small d-block mb-1"><i class="bi bi-calendar-event text-primary me-1"></i> تاريخ وموعد الكشف</label>
-                            <div class="fw-bold text-dark" id="pmDateTime">-</div>
+                            <div class="fw-bold patient-data-value" id="pmDateTime">-</div>
                             <small class="text-muted" id="pmShiftType">-</small>
                         </div>
                     </div>
                     <div class="col-md-6">
                         <div class="p-3 border rounded-3 bg-white h-100">
                             <label class="text-muted small d-block mb-1"><i class="bi bi-bandaid text-primary me-1"></i> الخدمة أو الإجراء الطبي</label>
-                            <div class="fw-bold text-dark" id="pmServiceName">-</div>
+                            <div class="fw-bold patient-data-value" id="pmServiceName">-</div>
                         </div>
                     </div>
                     <div class="col-12">
                         <div class="p-3 border rounded-3 bg-white">
                             <label class="text-muted small d-block mb-1"><i class="bi bi-chat-left-text text-primary me-1"></i> ملاحظات وشكوى المريض</label>
-                            <div class="text-dark" id="pmPatientNotes">-</div>
+                            <div class="patient-data-value" id="pmPatientNotes">-</div>
                         </div>
                     </div>
                 </div>

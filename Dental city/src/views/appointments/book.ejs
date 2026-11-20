@@ -169,15 +169,35 @@
         color: #94a3b8 !important;
     }
 
-    .summary-value {
-        font-weight: 600;
-        color: #0f172a;
+    :root {
+        --dc-patient-data-color: #0000FF;
+    }
+    [data-bs-theme="dark"],
+    [data-theme="dark"],
+    body.dark-mode {
+        --dc-patient-data-color: #FFFFFF !important;
+    }
+
+    .summary-value,
+    .patient-data-value {
+        font-weight: 700;
+        color: var(--dc-patient-data-color, #0000FF) !important;
+    }
+
+    [data-bs-theme="light"] .summary-value,
+    [data-bs-theme="light"] .patient-data-value,
+    body:not([data-bs-theme="dark"]):not([data-theme="dark"]):not(.dark-mode) .summary-value,
+    body:not([data-bs-theme="dark"]):not([data-theme="dark"]):not(.dark-mode) .patient-data-value {
+        color: #0000FF !important;
     }
 
     [data-bs-theme="dark"] .summary-value,
+    [data-bs-theme="dark"] .patient-data-value,
     [data-theme="dark"] .summary-value,
-    body.dark-mode .summary-value {
-        color: #f8fafc !important;
+    [data-theme="dark"] .patient-data-value,
+    body.dark-mode .summary-value,
+    body.dark-mode .patient-data-value {
+        color: #FFFFFF !important;
     }
 
     .btn-submit-booking {

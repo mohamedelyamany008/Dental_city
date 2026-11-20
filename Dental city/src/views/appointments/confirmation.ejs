@@ -57,10 +57,71 @@
         gap: 0.4rem;
     }
 
-    .info-card-value {
+    :root {
+        --dc-patient-data-color: #0000FF;
+    }
+    [data-bs-theme="dark"],
+    [data-theme="dark"],
+    body.dark-mode {
+        --dc-patient-data-color: #FFFFFF !important;
+    }
+
+    .info-card-value,
+    .patient-data-value {
         font-size: 1.1rem;
         font-weight: 700;
-        color: #0f172a;
+        color: var(--dc-patient-data-color, #0000FF) !important;
+    }
+
+    [data-bs-theme="light"] .info-card-value,
+    [data-bs-theme="light"] .patient-data-value,
+    body:not([data-bs-theme="dark"]):not([data-theme="dark"]):not(.dark-mode) .info-card-value,
+    body:not([data-bs-theme="dark"]):not([data-theme="dark"]):not(.dark-mode) .patient-data-value {
+        color: #0000FF !important;
+    }
+
+    [data-bs-theme="dark"] .info-card-value,
+    [data-bs-theme="dark"] .patient-data-value,
+    [data-theme="dark"] .info-card-value,
+    [data-theme="dark"] .patient-data-value,
+    body.dark-mode .info-card-value,
+    body.dark-mode .patient-data-value {
+        color: #FFFFFF !important;
+    }
+
+    /* Dark Mode Containers for Confirmation Screen */
+    [data-bs-theme="dark"] .ticket-card,
+    [data-theme="dark"] .ticket-card,
+    body.dark-mode .ticket-card {
+        background: #1e293b !important;
+        border-color: #334155 !important;
+    }
+
+    [data-bs-theme="dark"] .info-card,
+    [data-theme="dark"] .info-card,
+    body.dark-mode .info-card {
+        background-color: #0f172a !important;
+        border-color: #334155 !important;
+    }
+
+    [data-bs-theme="dark"] .info-card-label,
+    [data-theme="dark"] .info-card-label,
+    body.dark-mode .info-card-label {
+        color: #94a3b8 !important;
+    }
+
+    [data-bs-theme="dark"] .reference-box,
+    [data-theme="dark"] .reference-box,
+    body.dark-mode .reference-box {
+        background: #0f172a !important;
+        border-color: #10b981 !important;
+    }
+
+    [data-bs-theme="dark"] .patient-notes-box,
+    [data-theme="dark"] .patient-notes-box,
+    body.dark-mode .patient-notes-box {
+        background-color: #0f172a !important;
+        border-color: #334155 !important;
     }
 
     @media print {
@@ -110,14 +171,14 @@
                         <div class="info-card-label">
                             <i class="bi bi-person-fill text-primary"></i> اسم المريض
                         </div>
-                        <div class="info-card-value"><%= booking.patient_name %></div>
+                        <div class="info-card-value patient-data-value"><%= booking.patient_name %></div>
                     </div>
 
                     <div class="info-card">
                         <div class="info-card-label">
                             <i class="bi bi-telephone-fill text-primary"></i> رقم الهاتف
                         </div>
-                        <div class="info-card-value"><%= booking.patient_phone %></div>
+                        <div class="info-card-value patient-data-value font-monospace" dir="ltr"><%= booking.patient_phone %></div>
                     </div>
 
                     <% if (booking.gender) { %>
@@ -125,7 +186,7 @@
                         <div class="info-card-label">
                             <i class="bi bi-gender-ambiguous text-primary"></i> النوع
                         </div>
-                        <div class="info-card-value"><%= booking.gender %></div>
+                        <div class="info-card-value patient-data-value"><%= booking.gender %></div>
                     </div>
                     <% } %>
 
@@ -134,7 +195,7 @@
                         <div class="info-card-label">
                             <i class="bi bi-calendar-event text-primary"></i> تاريخ الميلاد / السن
                         </div>
-                        <div class="info-card-value">
+                        <div class="info-card-value patient-data-value">
                             <%= booking.birth_date || '' %>
                             <% if (booking.age) { %> (<%= booking.age %> سنة)<% } %>
                         </div>
@@ -145,7 +206,7 @@
                         <div class="info-card-label">
                             <i class="bi bi-heart-pulse text-danger"></i> الطبيب المعالج
                         </div>
-                        <div class="info-card-value text-primary"><%= booking.doctor_name %></div>
+                        <div class="info-card-value patient-data-value"><%= booking.doctor_name %></div>
                         <small class="text-muted d-block mt-1"><%= booking.doctor_specialty %></small>
                     </div>
 
@@ -153,21 +214,21 @@
                         <div class="info-card-label">
                             <i class="bi bi-calendar-check text-primary"></i> تاريخ الموعد
                         </div>
-                        <div class="info-card-value"><%= booking.appointment_date %></div>
+                        <div class="info-card-value patient-data-value"><%= booking.appointment_date %></div>
                     </div>
 
                     <div class="info-card">
                         <div class="info-card-label">
                             <i class="bi bi-clock-fill text-success"></i> وقت الموعد
                         </div>
-                        <div class="info-card-value text-success"><%= booking.appointment_time %></div>
+                        <div class="info-card-value patient-data-value"><%= booking.appointment_time %></div>
                     </div>
 
                     <div class="info-card">
                         <div class="info-card-label">
                             <i class="bi bi-shield-plus text-primary"></i> نوع الخدمة
                         </div>
-                        <div class="info-card-value"><%= booking.selected_service %></div>
+                        <div class="info-card-value patient-data-value"><%= booking.selected_service %></div>
                     </div>
 
                     <div class="info-card">
@@ -183,11 +244,11 @@
                 </div>
 
                 <% if (booking.patient_notes) { %>
-                    <div class="p-3 bg-light rounded border mb-4">
+                    <div class="p-3 bg-light rounded border mb-4 patient-notes-box">
                         <span class="fw-semibold text-secondary d-block mb-1">
                             <i class="bi bi-chat-quote-fill me-1 text-primary"></i> ملاحظات الشكوى الطبية:
                         </span>
-                        <p class="mb-0 text-dark"><%= booking.patient_notes %></p>
+                        <p class="mb-0 patient-data-value"><%= booking.patient_notes %></p>
                     </div>
                 <% } %>
 

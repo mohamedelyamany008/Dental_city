@@ -212,6 +212,77 @@
         background-color: #1e293b !important;
         border-color: #334155 !important;
     }
+
+    /* Dynamic Theme Adaptation for Patient Data Fields */
+    :root {
+        --dc-patient-data-color: #0000FF;
+    }
+    [data-bs-theme="dark"],
+    [data-theme="dark"],
+    body.dark-mode {
+        --dc-patient-data-color: #FFFFFF !important;
+    }
+    .patient-data-value,
+    .patient-name-text,
+    .patient-phone-text,
+    #pbmPatientName,
+    #pbmPhone,
+    #pbmDate,
+    #pbmTime,
+    #pbmService,
+    #pbmNotes {
+        color: var(--dc-patient-data-color, #0000FF) !important;
+        font-weight: 700;
+    }
+    [data-bs-theme="light"] .patient-data-value,
+    [data-bs-theme="light"] .patient-name-text,
+    [data-bs-theme="light"] .patient-phone-text,
+    [data-bs-theme="light"] #pbmPatientName,
+    [data-bs-theme="light"] #pbmPhone,
+    [data-bs-theme="light"] #pbmDate,
+    [data-bs-theme="light"] #pbmTime,
+    [data-bs-theme="light"] #pbmService,
+    [data-bs-theme="light"] #pbmNotes,
+    body:not([data-bs-theme="dark"]):not([data-theme="dark"]):not(.dark-mode) .patient-data-value,
+    body:not([data-bs-theme="dark"]):not([data-theme="dark"]):not(.dark-mode) .patient-name-text,
+    body:not([data-bs-theme="dark"]):not([data-theme="dark"]):not(.dark-mode) .patient-phone-text,
+    body:not([data-bs-theme="dark"]):not([data-theme="dark"]):not(.dark-mode) #pbmPatientName,
+    body:not([data-bs-theme="dark"]):not([data-theme="dark"]):not(.dark-mode) #pbmPhone,
+    body:not([data-bs-theme="dark"]):not([data-theme="dark"]):not(.dark-mode) #pbmDate,
+    body:not([data-bs-theme="dark"]):not([data-theme="dark"]):not(.dark-mode) #pbmTime,
+    body:not([data-bs-theme="dark"]):not([data-theme="dark"]):not(.dark-mode) #pbmService,
+    body:not([data-bs-theme="dark"]):not([data-theme="dark"]):not(.dark-mode) #pbmNotes {
+        color: #0000FF !important;
+    }
+    [data-bs-theme="dark"] .patient-data-value,
+    [data-bs-theme="dark"] .patient-name-text,
+    [data-bs-theme="dark"] .patient-phone-text,
+    [data-bs-theme="dark"] #pbmPatientName,
+    [data-bs-theme="dark"] #pbmPhone,
+    [data-bs-theme="dark"] #pbmDate,
+    [data-bs-theme="dark"] #pbmTime,
+    [data-bs-theme="dark"] #pbmService,
+    [data-bs-theme="dark"] #pbmNotes,
+    [data-theme="dark"] .patient-data-value,
+    [data-theme="dark"] .patient-name-text,
+    [data-theme="dark"] .patient-phone-text,
+    [data-theme="dark"] #pbmPatientName,
+    [data-theme="dark"] #pbmPhone,
+    [data-theme="dark"] #pbmDate,
+    [data-theme="dark"] #pbmTime,
+    [data-theme="dark"] #pbmService,
+    [data-theme="dark"] #pbmNotes,
+    body.dark-mode .patient-data-value,
+    body.dark-mode .patient-name-text,
+    body.dark-mode .patient-phone-text,
+    body.dark-mode #pbmPatientName,
+    body.dark-mode #pbmPhone,
+    body.dark-mode #pbmDate,
+    body.dark-mode #pbmTime,
+    body.dark-mode #pbmService,
+    body.dark-mode #pbmNotes {
+        color: #FFFFFF !important;
+    }
 </style>
 
 <div class="patient-portal-wrapper">
@@ -458,8 +529,8 @@
                                                 <%= booking.reference %>
                                             </span>
                                         </td>
-                                        <td class="fw-bold"><%= booking.patient_name %></td>
-                                        <td dir="ltr" class="text-end font-monospace fw-semibold"><%= booking.patient_phone %></td>
+                                        <td class="fw-bold patient-data-value patient-name-text"><%= booking.patient_name %></td>
+                                        <td dir="ltr" class="text-end font-monospace fw-semibold patient-data-value patient-phone-text"><%= booking.patient_phone %></td>
                                         <td>
                                             <div class="fw-bold text-primary"><%= booking.doctor_name %></div>
                                             <small class="text-muted d-block"><%= booking.doctor_specialty %></small>
@@ -468,10 +539,10 @@
                                             <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2 py-1"><%= booking.selected_service %></span>
                                         </td>
                                         <td>
-                                            <span class="fw-semibold"><%= booking.appointment_date %></span>
+                                            <span class="fw-semibold patient-data-value"><%= booking.appointment_date %></span>
                                         </td>
                                         <td>
-                                            <span class="badge bg-light text-dark border px-2 py-1">
+                                            <span class="badge bg-light text-dark border px-2 py-1 patient-data-value">
                                                 <i class="bi bi-clock me-1"></i><%= booking.appointment_time %>
                                             </span>
                                         </td>
@@ -566,7 +637,7 @@
                                     م
                                 </div>
                                 <div>
-                                    <h5 class="fw-bold text-dark mb-1" id="pbmPatientName">-</h5>
+                                    <h5 class="fw-bold mb-1 patient-data-value patient-name-text" id="pbmPatientName">-</h5>
                                     <span class="badge bg-secondary font-monospace rounded-pill px-3 py-1" id="pbmRefBadge">
                                         <i class="bi bi-hash me-1"></i><span id="pbmReference">-</span>
                                     </span>
@@ -584,8 +655,8 @@
                         <div class="col-md-6">
                             <div class="p-3 border rounded-3 bg-white h-100 shadow-sm">
                                 <label class="text-muted small d-block mb-1"><i class="bi bi-telephone-fill text-primary me-1"></i> رقم الهاتف المسجل</label>
-                                <div class="fw-bold text-dark d-flex align-items-center justify-content-between">
-                                    <span id="pbmPhone" dir="ltr">-</span>
+                                <div class="fw-bold d-flex align-items-center justify-content-between">
+                                    <span id="pbmPhone" dir="ltr" class="patient-data-value patient-phone-text">-</span>
                                     <a href="#" id="pbmWhatsappBtn" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-success rounded-pill px-3 py-1">
                                         <i class="bi bi-whatsapp me-1"></i> واتساب
                                     </a>
@@ -602,21 +673,21 @@
                         <div class="col-md-6">
                             <div class="p-3 border rounded-3 bg-white h-100 shadow-sm">
                                 <label class="text-muted small d-block mb-1"><i class="bi bi-calendar-check-fill text-primary me-1"></i> تاريخ وموعد الكشف</label>
-                                <div class="fw-bold text-dark fs-6" id="pbmDate">-</div>
-                                <div class="text-muted small mt-1" id="pbmTime">الوقت: -</div>
+                                <div class="fw-bold fs-6 patient-data-value" id="pbmDate">-</div>
+                                <div class="small mt-1 patient-data-value" id="pbmTime">الوقت: -</div>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="p-3 border rounded-3 bg-white h-100 shadow-sm">
                                 <label class="text-muted small d-block mb-1"><i class="bi bi-shield-plus text-primary me-1"></i> الخدمة الطبية المطلوبة</label>
-                                <div class="fw-bold text-dark" id="pbmService">-</div>
+                                <div class="fw-bold patient-data-value" id="pbmService">-</div>
                                 <small class="text-muted">مركز دينتال سيتي لطب الأسنان</small>
                             </div>
                         </div>
                         <div class="col-12">
                             <div class="p-3 border rounded-3 bg-white shadow-sm">
                                 <label class="text-muted small d-block mb-1"><i class="bi bi-chat-quote-fill text-primary me-1"></i> ملاحظات الشكوى الطبية</label>
-                                <div class="text-dark small" id="pbmNotes">-</div>
+                                <div class="small patient-data-value" id="pbmNotes">-</div>
                             </div>
                         </div>
                     </div>

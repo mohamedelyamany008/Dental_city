@@ -41,7 +41,15 @@ copyIfSrcExists(bookSrc, 'dist/views/appointments/book.ejs');
 copyIfSrcExists(bookSrc, 'publish-monsterasp/dist/views/appointments/book.ejs');
 copyIfSrcExists(bookSrc, 'publish-monsterasp/views/appointments/book.ejs');
 
-// 5. CSS & JS
+// 5. Appointments Confirmation View
+const confirmationSrc = 'Dental city/src/views/appointments/confirmation.ejs';
+copyIfSrcExists(confirmationSrc, 'views/appointments/confirmation.ejs');
+copyIfSrcExists(confirmationSrc, 'Dental city/dist/views/appointments/confirmation.ejs');
+copyIfSrcExists(confirmationSrc, 'dist/views/appointments/confirmation.ejs');
+copyIfSrcExists(confirmationSrc, 'publish-monsterasp/dist/views/appointments/confirmation.ejs');
+copyIfSrcExists(confirmationSrc, 'publish-monsterasp/views/appointments/confirmation.ejs');
+
+// 6. CSS & JS
 copyIfSrcExists('public/css/sidebar.css', 'Dental city/public/css/sidebar.css');
 copyIfSrcExists('public/css/theme.css', 'Dental city/public/css/theme.css');
 copyIfSrcExists('public/js/sidebar.js', 'Dental city/public/js/sidebar.js');
