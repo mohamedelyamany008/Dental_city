@@ -12,34 +12,70 @@
     <link rel="shortcut icon" type="image/png" href="/images/logo.png" />
     <link rel="apple-touch-icon" href="/images/logo.png" />
     
+    <!-- Early Theme Initialization to Prevent FOUC -->
+    <script>
+        (function () {
+            const stored = localStorage.getItem('dental_city_theme') || 'auto';
+            const resolved = (stored === 'auto')
+                ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+                : stored;
+            document.documentElement.setAttribute('data-bs-theme', resolved);
+            document.documentElement.classList.add(resolved === 'dark' ? 'theme-dark' : 'theme-light');
+        })();
+    </script>
+
     <!-- CSS Libraries -->
     <link rel="stylesheet" href="/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
     <link rel="stylesheet" href="/css/site.css" />
     <link rel="stylesheet" href="/css/dental_city.styles.css" />
     <link rel="stylesheet" href="/css/sidebar.css" />
+    <link rel="stylesheet" href="/css/theme.css" />
 </head>
 <body class="dashboard-body">
     <div class="dashboard-layout-wrapper">
         <!-- Reusable RTL Sidebar Partial -->
         <%- include('../partials/sidebar') %>
 
+        <%
+            const activeDocName = (typeof user !== 'undefined' && user && user.name) 
+                ? user.name 
+                : ((typeof doctorUser !== 'undefined' && doctorUser && doctorUser.name) 
+                    ? doctorUser.name 
+                    : 'د. حازم حجاج');
+            const activeDocRole = (typeof user !== 'undefined' && user && user.role)
+                ? (user.role === 'admin' ? 'المدير الطبي والإداري' : (user.role === 'doctor' ? 'طبيب أسنان أخصائي' : 'موظف استقبال وتنسيق'))
+                : 'المدير الطبي والإداري';
+        %>
+
         <!-- Main Dashboard Content Column -->
         <div class="dashboard-main-content" id="mainContentArea">
-            <!-- Mobile Topbar with Hamburger Toggle -->
+            <!-- Mobile Topbar with Active Doctor Badge & Hamburger Toggle -->
             <header class="dashboard-mobile-header d-lg-none">
                 <div class="d-flex align-items-center gap-2">
                     <img src="/images/logo.png" alt="Dental City" height="34" class="rounded-2 shadow-sm" onerror="this.onerror=null;this.src='/images/logo.png.jpg';" />
-                    <span class="fw-bold text-dark fs-6">مركز <span class="text-primary">دينتال سيتي</span></span>
+                    <span class="fw-bold text-primary fs-6">مركز دينتال سيتي</span>
                 </div>
-                <button type="button" class="btn btn-outline-primary btn-sm px-2 py-1 rounded-3" id="sidebarMobileToggle" title="فتح القائمة الجانبية">
-                    <i class="bi bi-list fs-5"></i>
-                </button>
+                <div class="d-flex align-items-center gap-2">
+                    <!-- Active Doctor Mobile Pill -->
+                    <div class="doctor-mobile-badge d-flex align-items-center gap-1" title="<%= activeDocName %> (<%= activeDocRole %>)">
+                        <i class="bi bi-person-badge-fill text-primary"></i>
+                        <span class="doctor-mobile-name fw-semibold small text-truncate" style="max-width: 95px;"><%= activeDocName %></span>
+                    </div>
+                    <!-- Theme Toggle Mobile -->
+                    <%- include('../partials/theme-toggle', { idPrefix: 'dashboardMobileThemeToggle', compact: true }) %>
+                    <button type="button" class="btn btn-outline-primary btn-sm px-2 py-1 rounded-3" id="sidebarMobileToggle" title="فتح القائمة الجانبية">
+                        <i class="bi bi-list fs-5"></i>
+                    </button>
+                </div>
             </header>
 
             <!-- Desktop Sticky Top Header -->
             <header class="dashboard-topbar d-none d-lg-flex">
                 <div class="d-flex align-items-center gap-2">
+                    <a href="/" class="text-decoration-none d-flex align-items-center gap-2 me-2" title="الرئيسية - مركز دينتال سيتي">
+                        <span class="fw-bold text-primary fs-6">مركز دينتال سيتي</span>
+                    </a>
                     <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1 rounded-pill">
                         <i class="bi bi-hospital me-1"></i> فرع المركز الرئيسي
                     </span>
@@ -51,17 +87,30 @@
                 </div>
 
                 <div class="d-flex align-items-center gap-3">
+                    <!-- Theme Toggle Desktop (Light / Dark / Auto) -->
+                    <%- include('../partials/theme-toggle', { idPrefix: 'dashboardDesktopThemeToggle', compact: false }) %>
+
                     <a href="/Appointments/Book" class="btn btn-primary btn-sm px-3 rounded-pill fw-semibold">
                         <i class="bi bi-calendar2-plus me-1"></i> حجز موعد جديد
                     </a>
 
+                    <!-- Topbar Active Doctor Profile Badge (Clear visibility in Light & Dark modes) -->
                     <div class="dropdown">
-                        <button class="btn btn-light border btn-sm rounded-pill px-3 dropdown-toggle d-flex align-items-center gap-2" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="bi bi-person-circle text-primary"></i>
-                            <span class="fw-semibold text-dark"><%= (typeof user !== 'undefined' && user && user.name) ? user.name : 'د. حازم حجاج' %></span>
+                        <button class="btn doctor-nav-btn rounded-pill px-3 py-1 dropdown-toggle d-flex align-items-center gap-2" type="button" data-bs-toggle="dropdown" aria-expanded="false" id="topbarDoctorDropdown">
+                            <span class="doctor-nav-avatar">
+                                <i class="bi bi-person-fill"></i>
+                            </span>
+                            <div class="text-end lh-1 d-none d-sm-block">
+                                <span class="doctor-nav-name fw-bold d-block"><%= activeDocName %></span>
+                                <span class="doctor-nav-role small"><%= activeDocRole %></span>
+                            </div>
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 rounded-3 mt-1 py-2 text-end">
-                            <li><a class="dropdown-item py-2" href="/Doctor/Dashboard"><i class="bi bi-speedometer2 text-primary me-2"></i>لوحة التحكم</a></li>
+                            <li class="px-3 py-2 border-bottom mb-1">
+                                <span class="fw-bold d-block text-primary"><%= activeDocName %></span>
+                                <small class="text-muted"><%= activeDocRole %></small>
+                            </li>
+                            <li><a class="dropdown-item py-2" href="/Doctor/Dashboard#overview"><i class="bi bi-speedometer2 text-primary me-2"></i>لوحة التحكم</a></li>
                             <li><a class="dropdown-item py-2" href="/Appointments/Book"><i class="bi bi-calendar2-plus text-success me-2"></i>حجز موعد</a></li>
                             <li><a class="dropdown-item py-2" href="/"><i class="bi bi-globe2 text-secondary me-2"></i>الموقع العام</a></li>
                             <li><hr class="dropdown-divider"></li>
@@ -91,7 +140,7 @@
             <footer class="dashboard-footer">
                 <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-2">
                     <div>
-                        <span>&copy; 2026 - مركز دينتال سيتي لطب وجراحة الأسنان. جميع الحقوق محفوظة.</span>
+                        <span>&copy; 2026 - مركز دينتال سيتي لطب وجراحة الأسنان (Dental City Center). جميع الحقوق محفوظة.</span>
                     </div>
                     <div class="d-flex align-items-center gap-3">
                         <span class="text-secondary small">
@@ -110,5 +159,6 @@
     <script src="/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/js/site.js"></script>
     <script src="/js/sidebar.js"></script>
+    <script src="/js/theme.js"></script>
 </body>
 </html>

@@ -2,6 +2,7 @@ import { supabase } from '../config/supabase.js';
 import {
   Doctor,
   Booking,
+  Staff,
   AppointmentSlot,
   DoctorScheduleResult,
   SupabaseBookingRow,
@@ -11,6 +12,7 @@ import {
 import { DoctorAuthService } from './doctorAuthService.js';
 import { WhatsAppNotificationService } from './whatsappService.js';
 import dotenv from 'dotenv';
+import crypto from 'crypto';
 
 dotenv.config();
 
@@ -50,39 +52,76 @@ export class AppointmentService {
   ];
 
   // ============================================================================
-  // Two-Shift Schedule Configuration (Mandatory 1-Hour Intervals)
-  // Morning Shift: 09:00 AM - 12:00 PM | Evening Shift: 12:00 PM - 06:00 PM
+  // Flexible Two-Shift Schedule Configuration (Interactive & Customizable)
+  // Morning Shift & Evening Shift with Configurable Hours & Intervals
   // ============================================================================
-  public static readonly MORNING_SHIFT_HOURS = '09:00 ص - 12:00 م';
-  public static readonly EVENING_SHIFT_HOURS = '12:00 م - 06:00 م';
-  public static readonly FULL_DAY_HOURS = '09:00 ص - 12:00 م | 12:00 م - 06:00 م';
+  public static shiftSettings = {
+    morningStart: '09:00 ص',
+    morningEnd: '12:00 م',
+    eveningStart: '12:00 م',
+    eveningEnd: '06:00 م',
+    intervalMinutes: 60
+  };
 
-  // Fixed 1-hour interval slots for Morning Shift (9 AM - 12 PM)
-  public static readonly MORNING_SLOTS: string[] = [
-    '09:00 ص',
-    '10:00 ص',
-    '11:00 ص'
-  ];
+  public static getShiftSettings() {
+    return { ...this.shiftSettings };
+  }
 
-  // Fixed 1-hour interval slots for Evening Shift (12 PM - 6 PM)
-  public static readonly EVENING_SLOTS: string[] = [
-    '12:00 م',
-    '01:00 م',
-    '02:00 م',
-    '03:00 م',
-    '04:00 م',
-    '05:00 م'
-  ];
+  public static updateShiftSettings(newSettings: Partial<typeof AppointmentService.shiftSettings>): boolean {
+    if (newSettings.morningStart) this.shiftSettings.morningStart = this.normalizeTimeSlot(newSettings.morningStart);
+    if (newSettings.morningEnd) this.shiftSettings.morningEnd = this.normalizeTimeSlot(newSettings.morningEnd);
+    if (newSettings.eveningStart) this.shiftSettings.eveningStart = this.normalizeTimeSlot(newSettings.eveningStart);
+    if (newSettings.eveningEnd) this.shiftSettings.eveningEnd = this.normalizeTimeSlot(newSettings.eveningEnd);
+    if (newSettings.intervalMinutes) this.shiftSettings.intervalMinutes = Number(newSettings.intervalMinutes);
 
-  // Combined 1-hour interval slots (9 slots per full working day)
-  public static readonly ALL_SHIFT_SLOTS: string[] = [
-    ...AppointmentService.MORNING_SLOTS,
-    ...AppointmentService.EVENING_SLOTS
-  ];
+    this.configuredSlots = this.getTwoShiftSlots();
+    return true;
+  }
+
+  public static generateSlotsBetween(startStr: string, endStr: string, intervalMinutes: number = 60): string[] {
+    const startObj = this.parseTimeTo24H(startStr);
+    const endObj = this.parseTimeTo24H(endStr);
+    let curMins = startObj.hour * 60 + startObj.minute;
+    const endMins = endObj.hour * 60 + endObj.minute;
+    const slots: string[] = [];
+    const interval = Math.max(15, intervalMinutes || 60);
+
+    while (curMins < endMins) {
+      slots.push(this.formatMinutesToArabic(curMins));
+      curMins += interval;
+    }
+    return slots;
+  }
+
+  public static get MORNING_SHIFT_HOURS(): string {
+    return `${this.shiftSettings.morningStart} - ${this.shiftSettings.morningEnd}`;
+  }
+
+  public static get EVENING_SHIFT_HOURS(): string {
+    return `${this.shiftSettings.eveningStart} - ${this.shiftSettings.eveningEnd}`;
+  }
+
+  public static get FULL_DAY_HOURS(): string {
+    return `${this.shiftSettings.morningStart} - ${this.shiftSettings.morningEnd} | ${this.shiftSettings.eveningStart} - ${this.shiftSettings.eveningEnd}`;
+  }
+
+  // Dynamic interval slots for Morning Shift
+  public static get MORNING_SLOTS(): string[] {
+    return this.generateSlotsBetween(this.shiftSettings.morningStart, this.shiftSettings.morningEnd, this.shiftSettings.intervalMinutes);
+  }
+
+  // Dynamic interval slots for Evening Shift
+  public static get EVENING_SLOTS(): string[] {
+    return this.generateSlotsBetween(this.shiftSettings.eveningStart, this.shiftSettings.eveningEnd, this.shiftSettings.intervalMinutes);
+  }
+
+  // Combined interval slots
+  public static get ALL_SHIFT_SLOTS(): string[] {
+    return [...this.MORNING_SLOTS, ...this.EVENING_SLOTS];
+  }
 
   /**
-   * Generates Two-Shift slots with mandatory 1-hour interval between appointments.
-   * Morning: 09:00 AM - 12:00 PM | Evening: 12:00 PM - 06:00 PM
+   * Generates Two-Shift slots with configurable interval between appointments.
    */
   public static getTwoShiftSlots(filterSlots?: string[]): AppointmentSlot[] {
     const filterSet = (filterSlots && filterSlots.length > 0)
@@ -204,14 +243,23 @@ export class AppointmentService {
     return { hour, minute };
   }
 
-  // --- Doctors CRUD with In-Memory Caching ---
+  public static formatTimeForDb(timeStr: string | null | undefined, defaultVal: string = '09:00:00'): string {
+    if (!timeStr || !timeStr.trim()) return defaultVal;
+    const trimmed = timeStr.trim();
+    if (/^\d{2}:\d{2}:\d{2}$/.test(trimmed)) return trimmed;
+    if (/^\d{1,2}:\d{2}$/.test(trimmed)) {
+      const [h, m] = trimmed.split(':');
+      return `${h.padStart(2, '0')}:${m}:00`;
+    }
+    const parsed = this.parseTimeTo24H(trimmed);
+    const hh = parsed.hour.toString().padStart(2, '0');
+    const mm = parsed.minute.toString().padStart(2, '0');
+    return `${hh}:${mm}:00`;
+  }
+
+  // --- Doctors CRUD with Real-Time Direct Supabase Persistence (Zero Stale Cache) ---
 
   public static async getDoctors(includeInactive: boolean = false): Promise<Doctor[]> {
-    const now = Date.now();
-    if (!includeInactive && this.allDoctorsCache && (now - this.allDoctorsCache.cachedAt < this.CACHE_TTL_MS)) {
-      return this.allDoctorsCache.doctors;
-    }
-
     try {
       let query = supabase.from('Doctors').select('*').order('id', { ascending: true });
       if (!includeInactive) {
@@ -223,16 +271,30 @@ export class AppointmentService {
         return [];
       }
 
-      const list = ((data as unknown as SupabaseDoctorRow[]) || []).map(d => ({
-        ...d,
+      const list: Doctor[] = ((data as unknown as SupabaseDoctorRow[]) || []).map(d => ({
+        id: d.id,
+        name: d.name,
+        title: d.title,
+        specialty: d.specialty,
+        climicroom: d.climicroom,
+        experienceyears: d.experienceyears,
+        PasswordHash: d.PasswordHash,
+        workinghours: d.workinghours,
+        OffDays: d.OffDays,
+        Rating: d.Rating,
+        AvatarIcon: d.AvatarIcon,
+        IsActive: d.IsActive,
+        WorkingDays: d.WorkingDays,
+        morning_start: d.morning_start || d['morning start'] || '09:00:00',
+        morning_end: d.morning_end || d['morning end'] || '12:00:00',
+        evening_start: d.evening_start || d['evening start'] || '12:00:00',
+        evening_end: d.evening_end || d['evening end'] || '18:00:00',
+        active_days: d.active_days || d['active days'] || d.WorkingDays || 'السبت - الخميس',
         AvaliableSlots: Array.isArray(d.AvaliableSlots)
           ? d.AvaliableSlots
-          : (typeof d.AvaliableSlots === 'string' ? JSON.parse(d.AvaliableSlots || '[]') : [])
+          : (typeof d.AvaliableSlots === 'string' ? JSON.parse(d.AvaliableSlots || '[]') : []),
+        created_at: d.created_at
       }));
-
-      if (!includeInactive) {
-        this.allDoctorsCache = { doctors: list, cachedAt: now };
-      }
 
       return list;
     } catch (err: unknown) {
@@ -243,12 +305,6 @@ export class AppointmentService {
   }
 
   public static async getDoctorById(id: number): Promise<Doctor | null> {
-    const now = Date.now();
-    const cached = this.doctorCache.get(id);
-    if (cached && (now - cached.cachedAt < this.CACHE_TTL_MS)) {
-      return cached.doctor;
-    }
-
     try {
       const { data, error } = await supabase
         .from('Doctors')
@@ -263,13 +319,30 @@ export class AppointmentService {
 
       const raw = data as unknown as SupabaseDoctorRow;
       const doc: Doctor = {
-        ...raw,
+        id: raw.id,
+        name: raw.name,
+        title: raw.title,
+        specialty: raw.specialty,
+        climicroom: raw.climicroom,
+        experienceyears: raw.experienceyears,
+        PasswordHash: raw.PasswordHash,
+        workinghours: raw.workinghours,
+        OffDays: raw.OffDays,
+        Rating: raw.Rating,
+        AvatarIcon: raw.AvatarIcon,
+        IsActive: raw.IsActive,
+        WorkingDays: raw.WorkingDays,
+        morning_start: raw.morning_start || raw['morning start'] || '09:00:00',
+        morning_end: raw.morning_end || raw['morning end'] || '12:00:00',
+        evening_start: raw.evening_start || raw['evening start'] || '12:00:00',
+        evening_end: raw.evening_end || raw['evening end'] || '18:00:00',
+        active_days: raw.active_days || raw['active days'] || raw.WorkingDays || 'السبت - الخميس',
         AvaliableSlots: Array.isArray(raw.AvaliableSlots)
           ? raw.AvaliableSlots
-          : (typeof raw.AvaliableSlots === 'string' ? JSON.parse(raw.AvaliableSlots || '[]') : [])
+          : (typeof raw.AvaliableSlots === 'string' ? JSON.parse(raw.AvaliableSlots || '[]') : []),
+        created_at: raw.created_at
       };
 
-      this.doctorCache.set(id, { doctor: doc, cachedAt: now });
       return doc;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -296,15 +369,26 @@ export class AppointmentService {
       passwordHash = DoctorAuthService.hashPassword('hodam1020300');
     }
 
-    const docToSave = {
+    const morningStart = this.formatTimeForDb(doctorData.morning_start, '09:00:00');
+    const morningEnd = this.formatTimeForDb(doctorData.morning_end, '12:00:00');
+    const eveningStart = this.formatTimeForDb(doctorData.evening_start, '12:00:00');
+    const eveningEnd = this.formatTimeForDb(doctorData.evening_end, '18:00:00');
+    const activeDays = doctorData.active_days || doctorData.WorkingDays || 'السبت - الخميس';
+
+    const docToSave: Record<string, any> = {
       name: doctorData.name,
       title: doctorData.title,
       specialty: doctorData.specialty,
       climicroom: doctorData.climicroom || 'العيادة الاستشارية (100) - المبنى الرئيسي',
       experienceyears: doctorData.experienceyears ?? 5,
       PasswordHash: passwordHash,
-      workinghours: doctorData.workinghours || '09:00 ص - 12:00 م | 12:00 م - 06:00 م',
-      WorkingDays: doctorData.WorkingDays || 'السبت - الخميس (الجمعة إجازة)',
+      workinghours: doctorData.workinghours || `${morningStart.substring(0, 5)} - ${morningEnd.substring(0, 5)} | ${eveningStart.substring(0, 5)} - ${eveningEnd.substring(0, 5)}`,
+      WorkingDays: activeDays,
+      'morning start': morningStart,
+      'morning end': morningEnd,
+      'evening start': eveningStart,
+      'evening end': eveningEnd,
+      'active days': activeDays,
       OffDays: doctorData.OffDays ?? 5,
       AvaliableSlots: doctorData.AvaliableSlots && doctorData.AvaliableSlots.length > 0
         ? doctorData.AvaliableSlots
@@ -372,18 +456,35 @@ export class AppointmentService {
     workingHours: string,
     workingDays: string,
     offDays: number[],
-    availableSlots: string[]
+    availableSlots: string[],
+    shiftDetails?: {
+      morning_start?: string;
+      morning_end?: string;
+      evening_start?: string;
+      evening_end?: string;
+      active_days?: string;
+    }
   ): Promise<boolean> {
     try {
       const offDay = (offDays && offDays.length > 0) ? offDays[0] : 5;
+      const updateData: Record<string, any> = {
+        workinghours: workingHours,
+        WorkingDays: workingDays,
+        OffDays: offDay,
+        AvaliableSlots: availableSlots
+      };
+
+      if (shiftDetails) {
+        if (shiftDetails.morning_start) updateData['morning start'] = this.formatTimeForDb(shiftDetails.morning_start, '09:00:00');
+        if (shiftDetails.morning_end) updateData['morning end'] = this.formatTimeForDb(shiftDetails.morning_end, '12:00:00');
+        if (shiftDetails.evening_start) updateData['evening start'] = this.formatTimeForDb(shiftDetails.evening_start, '12:00:00');
+        if (shiftDetails.evening_end) updateData['evening end'] = this.formatTimeForDb(shiftDetails.evening_end, '18:00:00');
+        if (shiftDetails.active_days) updateData['active days'] = shiftDetails.active_days;
+      }
+
       const { error } = await supabase
         .from('Doctors')
-        .update({
-          workinghours: workingHours,
-          WorkingDays: workingDays,
-          OffDays: offDay,
-          AvaliableSlots: availableSlots
-        })
+        .update(updateData)
         .eq('id', doctorId);
 
       if (error) {
@@ -396,6 +497,67 @@ export class AppointmentService {
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error('Exception in updateDoctorSchedule:', msg);
+      return false;
+    }
+  }
+
+  // --- Staff Management (Direct Supabase Persistence) ---
+
+  public static async getStaff(): Promise<Staff[]> {
+    try {
+      const { data, error } = await supabase
+        .from('Staff')
+        .select('*')
+        .order('id', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching staff from Supabase:', error.message);
+        return [];
+      }
+
+      return (data as unknown as Staff[]) || [];
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error('Exception in getStaff:', msg);
+      return [];
+    }
+  }
+
+  public static async addStaff(staffData: { name: string; role: string; phone: string }): Promise<Staff> {
+    const { data, error } = await supabase
+      .from('Staff')
+      .insert({
+        name: staffData.name,
+        role: staffData.role,
+        phone: staffData.phone
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error inserting staff into Supabase:', error.message);
+      throw new Error(`تعذر حفظ الموظف: ${error.message}`);
+    }
+
+    return data as unknown as Staff;
+  }
+
+  public static async deleteStaff(id: number): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from('Staff')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        console.error(`Error deleting staff #${id} from Supabase:`, error.message);
+        return false;
+      }
+
+      return true;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`Exception in deleteStaff(${id}):`, msg);
       return false;
     }
   }
@@ -722,6 +884,100 @@ export class AppointmentService {
 
     for (const [ref, b] of this.recentBookings.entries()) {
       if (!seenRefs.has(ref)) {
+        list.unshift(b);
+      }
+    }
+
+    return list;
+  }
+
+  /**
+   * Normalize phone number for consistent cross-device authentication and lookup
+   */
+  public static normalizePhone(phone: string): string {
+    if (!phone) return '';
+    return phone.replace(/[\s\-\+\(\)]/g, '').replace(/^002|^20/, '').replace(/^0/, '');
+  }
+
+  /**
+   * Centralized Token & Magic Link Generation for Patients
+   */
+  public static createPatientToken(phone: string): string {
+    const norm = this.normalizePhone(phone);
+    const payload = {
+      phone: norm,
+      rawPhone: phone.trim(),
+      created: Date.now(),
+      exp: Date.now() + 60 * 24 * 60 * 60 * 1000 // 60 days
+    };
+    const json = JSON.stringify(payload);
+    const b64 = Buffer.from(json).toString('base64url');
+    const secret = process.env.SESSION_SECRET || 'dc_center_patient_secret_2026';
+    const sig = crypto.createHmac('sha256', secret).update(b64).digest('hex').substring(0, 16);
+    return `${b64}.${sig}`;
+  }
+
+  /**
+   * Verify and decode patient session token
+   */
+  public static verifyPatientToken(token: string): { phone: string; rawPhone: string } | null {
+    if (!token || typeof token !== 'string') return null;
+    const parts = token.split('.');
+    if (parts.length !== 2) return null;
+    const [b64, sig] = parts;
+    const secret = process.env.SESSION_SECRET || 'dc_center_patient_secret_2026';
+    const expectedSig = crypto.createHmac('sha256', secret).update(b64).digest('hex').substring(0, 16);
+    if (sig !== expectedSig) return null;
+
+    try {
+      const payload = JSON.parse(Buffer.from(b64, 'base64url').toString('utf8'));
+      if (payload.exp && Date.now() > payload.exp) return null;
+      return { phone: payload.phone, rawPhone: payload.rawPhone || payload.phone };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Centralized query to fetch ONLY the bookings belonging to a specific patient by phone number.
+   * Strictly enforces patient privacy boundaries so users only view their own records across any device.
+   */
+  public static async getBookingsByPhone(phone: string): Promise<Booking[]> {
+    const norm = this.normalizePhone(phone);
+    if (!norm) return [];
+
+    const list: Booking[] = [];
+    const seenRefs = new Set<string>();
+
+    try {
+      const { data, error } = await supabase
+        .from('Bookings')
+        .select('*')
+        .order('id', { ascending: false });
+
+      if (data) {
+        const rows = data as unknown as SupabaseBookingRow[];
+        for (const row of rows) {
+          const rowNorm = this.normalizePhone(row.phone || '');
+          if (rowNorm === norm || (rowNorm && (rowNorm.endsWith(norm) || norm.endsWith(rowNorm)))) {
+            const booking = this.mapSupabaseRowToBooking(row);
+            if (!seenRefs.has(booking.reference)) {
+              seenRefs.add(booking.reference);
+              list.push(booking);
+            }
+          }
+        }
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`Exception in getBookingsByPhone(${phone}):`, msg);
+    }
+
+    // Also include in-memory recent bookings matching this phone
+    for (const [ref, b] of this.recentBookings.entries()) {
+      const bNorm = this.normalizePhone(b.patient_phone || '');
+      if ((bNorm === norm || (bNorm && (bNorm.endsWith(norm) || norm.endsWith(bNorm)))) && !seenRefs.has(ref)) {
+        seenRefs.add(ref);
         list.unshift(b);
       }
     }

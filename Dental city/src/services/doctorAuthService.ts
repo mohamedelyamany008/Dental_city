@@ -106,7 +106,7 @@ export class DoctorAuthService {
           success: false,
           doctorName: '',
           role: '',
-          errorMessage: 'كلمة المرور غير صحيحة. يرجى استخدام كلمة المرور المعتمدة hodam1020300 أو admin123'
+          errorMessage: 'بيانات تسجيل الدخول غير صحيحة. يرجى التحقق من اسم المستخدم وكلمة المرور والمحاولة مرة أخرى.'
         };
       }
 
@@ -124,7 +124,7 @@ export class DoctorAuthService {
         success: false,
         doctorName: '',
         role: '',
-        errorMessage: 'اسم المستخدم أو كلمة المرور غير صحيحة. كلمة المرور المعتمدة: hodam1020300'
+        errorMessage: 'بيانات تسجيل الدخول غير صحيحة. يرجى التحقق من اسم المستخدم وكلمة المرور والمحاولة مرة أخرى.'
       };
     } catch (err: unknown) {
       const errorMsg = err instanceof Error ? err.message : String(err);
@@ -143,7 +143,7 @@ export class DoctorAuthService {
         success: false,
         doctorName: '',
         role: '',
-        errorMessage: 'تعذر الاتصال بقاعدة البيانات. كلمة المرور المعتمدة: hodam1020300'
+        errorMessage: 'تعذر الاتصال بالخادم حالياً. يرجى المحاولة مرة أخرى لاحقاً.'
       };
     }
   }

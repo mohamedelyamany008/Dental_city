@@ -11,11 +11,24 @@
     <link rel="shortcut icon" type="image/png" href="/images/logo.png" />
     <link rel="apple-touch-icon" href="/images/logo.png" />
     
+    <!-- Early Theme Initialization to Prevent FOUC -->
+    <script>
+        (function () {
+            const stored = localStorage.getItem('dental_city_theme') || 'auto';
+            const resolved = (stored === 'auto')
+                ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+                : stored;
+            document.documentElement.setAttribute('data-bs-theme', resolved);
+            document.documentElement.classList.add(resolved === 'dark' ? 'theme-dark' : 'theme-light');
+        })();
+    </script>
+
     <!-- CSS Libraries -->
     <link rel="stylesheet" href="/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
     <link rel="stylesheet" href="/css/site.css" />
     <link rel="stylesheet" href="/css/dental_city.styles.css" />
+    <link rel="stylesheet" href="/css/theme.css" />
 </head>
 <body>
     <header>
@@ -23,7 +36,7 @@
             <div class="container">
                 <a class="navbar-brand d-flex align-items-center gap-2" href="/">
                     <img src="/images/logo.png" alt="Dental City Logo" class="brand-logo rounded-2 shadow-sm" height="42" onerror="this.onerror=null;this.src='/images/logo.png.jpg';" />
-                    <span class="fw-bold text-dark fs-5">Dental <span class="text-primary">City</span></span>
+                    <span class="fw-bold text-primary fs-5">مركز دينتال سيتي</span>
                 </a>
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
                         aria-expanded="false" aria-label="Toggle navigation">
@@ -56,6 +69,8 @@
                         <% } %>
                     </ul>
                     <div class="d-flex align-items-center gap-2">
+                        <!-- Theme Toggle Button (Light / Dark / System Sync) -->
+                        <%- include('../partials/theme-toggle', { idPrefix: 'mainNavbarThemeToggle', compact: false }) %>
                         <span class="badge bg-light text-dark border px-2 py-1">
                             <i class="bi bi-person-badge text-primary me-1"></i><%= (typeof user !== 'undefined' && user && user.name) ? user.name : 'د. حازم حجاج (رئيس الأطباء)' %>
                         </span>
@@ -89,7 +104,7 @@
         <div class="container d-flex flex-column flex-md-row justify-content-between align-items-center gap-3">
             <div class="d-flex align-items-center gap-2">
                 <img src="/images/logo.png" alt="Dental City" height="28" class="rounded-1" onerror="this.onerror=null;this.src='/images/logo.png.jpg';" />
-                <span>&copy; 2026 - Dental City Clinic. All rights reserved.</span>
+                <span>&copy; 2026 - مركز دينتال سيتي لطب وجراحة الأسنان (Dental City Center). جميع الحقوق محفوظة.</span>
             </div>
             <div class="text-secondary fw-medium d-flex align-items-center flex-wrap gap-2">
                 <i class="bi bi-code-slash text-primary me-1"></i>
@@ -106,6 +121,7 @@
     <script src="/lib/jquery/dist/jquery.min.js"></script>
     <script src="/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/js/site.js"></script>
+    <script src="/js/theme.js"></script>
 </body>
 </html>
 

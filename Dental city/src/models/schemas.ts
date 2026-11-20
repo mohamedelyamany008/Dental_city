@@ -16,6 +16,11 @@ export const DoctorFormSchema = z.object({
   IsActive: z.preprocess((val) => val === true || val === 'true' || val === 'on' || val === '1', z.boolean()).default(true),
   workinghours: z.string().optional().default('09:00 ص - 12:00 م | 12:00 م - 06:00 م'),
   WorkingDays: z.string().optional().default('السبت - الخميس (الجمعة إجازة)'),
+  morning_start: z.string().optional().nullable(),
+  morning_end: z.string().optional().nullable(),
+  evening_start: z.string().optional().nullable(),
+  evening_end: z.string().optional().nullable(),
+  active_days: z.string().optional().nullable(),
   OffDays: z.coerce.number().min(0).max(6).default(5),
   PasswordHash: z.string().optional().nullable()
 });
@@ -55,8 +60,19 @@ export const ScheduleUpdateSchema = z.object({
   scheduleDoctorId: z.coerce.number().min(1, 'يرجى تحديد الطبيب'),
   scheduleWorkingHours: z.string().min(1, 'يرجى تحديد ساعات العمل'),
   scheduleWorkingDays: z.string().min(1, 'يرجى تحديد أيام الحضور والعمل'),
+  morning_start: z.string().optional().default('09:00:00'),
+  morning_end: z.string().optional().default('12:00:00'),
+  evening_start: z.string().optional().default('12:00:00'),
+  evening_end: z.string().optional().default('18:00:00'),
+  active_days: z.string().optional().default('السبت - الخميس'),
   scheduleOffDays: z.array(z.coerce.number()).optional().default([5]),
   scheduleSelectedSlots: z.array(z.string()).optional().default([])
+});
+
+export const StaffFormSchema = z.object({
+  name: z.string().min(2, 'يرجى إدخال اسم الموظف بشكل صحيح'),
+  role: z.string().min(2, 'يرجى تحديد الدور الوظيفي'),
+  phone: z.string().min(8, 'يرجى إدخال رقم الهاتف بشكل صحيح')
 });
 
 export type DoctorFormData = z.infer<typeof DoctorFormSchema>;
@@ -64,3 +80,4 @@ export type BookingFormData = z.infer<typeof BookingFormSchema>;
 export type DoctorLoginData = z.infer<typeof DoctorLoginSchema>;
 export type ChangePasswordData = z.infer<typeof ChangePasswordSchema>;
 export type ScheduleUpdateData = z.infer<typeof ScheduleUpdateSchema>;
+export type StaffFormData = z.infer<typeof StaffFormSchema>;

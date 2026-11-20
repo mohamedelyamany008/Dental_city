@@ -1,5 +1,5 @@
 # ملف الكود البرمجي الشامل لمشروع مركز دينتال سيتي (Dental City)
-> **تاريخ التجميع:** ١٩‏/١١‏/٢٠٢٦، ٧:٠٦:٠٣ ص
+> **تاريخ التجميع:** ٢١‏/١١‏/٢٠٢٦، ١٢:٠٩:١٧ ص
 > **البيئة:** Node.js (TypeScript) + Express + EJS + Supabase (PostgreSQL)
 > **ملاحظة:** تم تجميع كل ملفات المشروع البرمجية في هذا المستند للعرض والمراجعة والنسخ بسهولة دون المساس أو التعديل بأي من الملفات الأصلية.
 
@@ -387,8 +387,8 @@ export const supabase = client;
 ### Data Interfaces & Types (types.ts)
 
 - **المسار:** `Dental city/src/models/types.ts`
-- **عدد الأسطر:** 139 سطر
-- **الحجم:** 3.0 KB
+- **عدد الأسطر:** 162 سطر
+- **الحجم:** 3.6 KB
 
 ````typescript
 /**
@@ -411,6 +411,19 @@ export interface Doctor {
   AvatarIcon: string;
   IsActive: boolean;
   WorkingDays: string;
+  morning_start?: string | null;
+  morning_end?: string | null;
+  evening_start?: string | null;
+  evening_end?: string | null;
+  active_days?: string | null;
+  created_at?: string;
+}
+
+export interface Staff {
+  id: number;
+  name: string;
+  role: string;
+  phone: string;
   created_at?: string;
 }
 
@@ -504,6 +517,16 @@ export interface SupabaseDoctorRow {
   AvatarIcon: string;
   IsActive: boolean;
   WorkingDays: string;
+  'morning start'?: string | null;
+  'morning end'?: string | null;
+  'evening start'?: string | null;
+  'evening end'?: string | null;
+  'active days'?: string | null;
+  morning_start?: string | null;
+  morning_end?: string | null;
+  evening_start?: string | null;
+  evening_end?: string | null;
+  active_days?: string | null;
   created_at?: string;
 }
 
@@ -536,8 +559,8 @@ declare module 'express-session' {
 ### Validation Schemas - Zod (schemas.ts)
 
 - **المسار:** `Dental city/src/models/schemas.ts`
-- **عدد الأسطر:** 67 سطر
-- **الحجم:** 3.9 KB
+- **عدد الأسطر:** 84 سطر
+- **الحجم:** 4.8 KB
 
 ````typescript
 import { z } from 'zod';
@@ -558,6 +581,11 @@ export const DoctorFormSchema = z.object({
   IsActive: z.preprocess((val) => val === true || val === 'true' || val === 'on' || val === '1', z.boolean()).default(true),
   workinghours: z.string().optional().default('09:00 ص - 12:00 م | 12:00 م - 06:00 م'),
   WorkingDays: z.string().optional().default('السبت - الخميس (الجمعة إجازة)'),
+  morning_start: z.string().optional().nullable(),
+  morning_end: z.string().optional().nullable(),
+  evening_start: z.string().optional().nullable(),
+  evening_end: z.string().optional().nullable(),
+  active_days: z.string().optional().nullable(),
   OffDays: z.coerce.number().min(0).max(6).default(5),
   PasswordHash: z.string().optional().nullable()
 });
@@ -597,8 +625,19 @@ export const ScheduleUpdateSchema = z.object({
   scheduleDoctorId: z.coerce.number().min(1, 'يرجى تحديد الطبيب'),
   scheduleWorkingHours: z.string().min(1, 'يرجى تحديد ساعات العمل'),
   scheduleWorkingDays: z.string().min(1, 'يرجى تحديد أيام الحضور والعمل'),
+  morning_start: z.string().optional().default('09:00:00'),
+  morning_end: z.string().optional().default('12:00:00'),
+  evening_start: z.string().optional().default('12:00:00'),
+  evening_end: z.string().optional().default('18:00:00'),
+  active_days: z.string().optional().default('السبت - الخميس'),
   scheduleOffDays: z.array(z.coerce.number()).optional().default([5]),
   scheduleSelectedSlots: z.array(z.string()).optional().default([])
+});
+
+export const StaffFormSchema = z.object({
+  name: z.string().min(2, 'يرجى إدخال اسم الموظف بشكل صحيح'),
+  role: z.string().min(2, 'يرجى تحديد الدور الوظيفي'),
+  phone: z.string().min(8, 'يرجى إدخال رقم الهاتف بشكل صحيح')
 });
 
 export type DoctorFormData = z.infer<typeof DoctorFormSchema>;
@@ -606,6 +645,7 @@ export type BookingFormData = z.infer<typeof BookingFormSchema>;
 export type DoctorLoginData = z.infer<typeof DoctorLoginSchema>;
 export type ChangePasswordData = z.infer<typeof ChangePasswordSchema>;
 export type ScheduleUpdateData = z.infer<typeof ScheduleUpdateSchema>;
+export type StaffFormData = z.infer<typeof StaffFormSchema>;
 ````
 
 ---
@@ -686,7 +726,7 @@ indexRoutes.get('/', async (_req: Request, res: Response) => {
 
 indexRoutes.get('/Privacy', (_req: Request, res: Response) => {
   return res.render('privacy', {
-    title: 'سياسة الخصوصية - دينتال سيتي'
+    title: 'سياسة الخصوصية - مركز دينتال سيتي'
   });
 });
 ````
@@ -696,12 +736,13 @@ indexRoutes.get('/Privacy', (_req: Request, res: Response) => {
 ### Appointments Routes & API (appointments.routes.ts)
 
 - **المسار:** `Dental city/src/routes/appointments.routes.ts`
-- **عدد الأسطر:** 228 سطر
-- **الحجم:** 8.9 KB
+- **عدد الأسطر:** 441 سطر
+- **الحجم:** 18.2 KB
 
 ````typescript
 import { Router, Request, Response } from 'express';
 import { AppointmentService } from '../services/appointmentService.js';
+import { Booking } from '../models/types.js';
 import { BookingFormSchema } from '../models/schemas.js';
 
 export const appointmentRoutes = Router();
@@ -744,13 +785,17 @@ appointmentRoutes.get(['/Appointments/Book', '/appointments/book'], async (req: 
   }
 
   // Normal Page Render
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+
   try {
     const doctors = await AppointmentService.getDoctors();
     const services = AppointmentService.getServices();
     const emergencyPhone = AppointmentService.getEmergencyPhone();
 
     return res.render('appointments/book', {
-      title: 'حجز موعد عيادة - دينتال سيتي (Dental City)',
+      title: 'حجز موعد عيادة - مركز دينتال سيتي (Dental City Center)',
       doctors,
       services,
       emergencyPhone,
@@ -787,7 +832,7 @@ appointmentRoutes.post(['/Appointments/Book', '/appointments/book'], async (req:
       });
 
       return res.status(400).render('appointments/book', {
-        title: 'حجز موعد عيادة - دينتال سيتي (Dental City)',
+        title: 'حجز موعد عيادة - مركز دينتال سيتي (Dental City Center)',
         doctors,
         services,
         emergencyPhone,
@@ -798,6 +843,13 @@ appointmentRoutes.post(['/Appointments/Book', '/appointments/book'], async (req:
 
     try {
       const booking = await AppointmentService.bookAppointment(parsed.data);
+      // Automatically issue persistent cross-device session token upon booking
+      const patientToken = AppointmentService.createPatientToken(parsed.data.patientPhone);
+      res.cookie('dc_patient_token', patientToken, {
+        maxAge: 60 * 24 * 60 * 60 * 1000,
+        httpOnly: true,
+        sameSite: 'lax'
+      });
       return res.redirect(`/Appointments/Confirmation?reference=${encodeURIComponent(booking.reference)}`);
     } catch (bookingErr: unknown) {
       const msg = bookingErr instanceof Error ? bookingErr.message : String(bookingErr);
@@ -812,7 +864,7 @@ appointmentRoutes.post(['/Appointments/Book', '/appointments/book'], async (req:
       const emergencyPhone = AppointmentService.getEmergencyPhone();
 
       return res.status(400).render('appointments/book', {
-        title: 'حجز موعد عيادة - دينتال سيتي (Dental City)',
+        title: 'حجز موعد عيادة - مركز دينتال سيتي (Dental City Center)',
         doctors,
         services,
         emergencyPhone,
@@ -848,9 +900,11 @@ appointmentRoutes.get(['/Appointments/Confirmation', '/appointments/confirmation
       });
     }
 
+    const magicLink = `${req.protocol}://${req.get('host')}/Patient/Portal?token=${encodeURIComponent(AppointmentService.createPatientToken(booking.patient_phone))}`;
     return res.render('appointments/confirmation', {
-      title: 'تأكيد حجز الموعد - دينتال سيتي (Dental City)',
+      title: 'تأكيد حجز الموعد - مركز دينتال سيتي (Dental City Center)',
       booking,
+      magicLink,
       emergencyPhone: AppointmentService.getEmergencyPhone()
     });
   } catch (err: unknown) {
@@ -860,27 +914,225 @@ appointmentRoutes.get(['/Appointments/Confirmation', '/appointments/confirmation
   }
 });
 
-// GET /Patient/Portal (and /patient/portal, /Portal, /portal)
-appointmentRoutes.get(['/Patient/Portal', '/patient/portal', '/Portal', '/portal'], async (_req: Request, res: Response) => {
+// GET /Patient/Portal (Centralized Token & Magic Link Authentication Architecture)
+appointmentRoutes.get(['/Patient/Portal', '/patient/portal', '/Portal', '/portal'], async (req: Request, res: Response) => {
   try {
+    const queryToken = ((req.query.token || req.query.auth || req.query.magic) as string) || '';
+    const cookieToken = (req.cookies?.dc_patient_token as string) || '';
+    const queryRef = ((req.query.ref || req.query.reference) as string) || '';
+    const tokenToUse = queryToken || cookieToken;
+
+    let verifiedPatient: { phone: string; rawPhone: string } | null = null;
+    if (tokenToUse) {
+      verifiedPatient = AppointmentService.verifyPatientToken(tokenToUse);
+      if (verifiedPatient && queryToken) {
+        // Set persistent cross-device cookie when accessing via magic link
+        res.cookie('dc_patient_token', queryToken, {
+          maxAge: 60 * 24 * 60 * 60 * 1000,
+          httpOnly: true,
+          sameSite: 'lax'
+        });
+      }
+    }
+
+    // Direct Booking Reference Auto-Authentication (if accessing with a valid ref in query)
+    if (!verifiedPatient && queryRef) {
+      const directBooking = await AppointmentService.getBookingByReference(queryRef);
+      if (directBooking && directBooking.patient_phone) {
+        verifiedPatient = {
+          phone: AppointmentService.normalizePhone(directBooking.patient_phone),
+          rawPhone: directBooking.patient_phone
+        };
+        const newToken = AppointmentService.createPatientToken(directBooking.patient_phone);
+        res.cookie('dc_patient_token', newToken, {
+          maxAge: 60 * 24 * 60 * 60 * 1000,
+          httpOnly: true,
+          sameSite: 'lax'
+        });
+      }
+    }
+
     const doctors = await AppointmentService.getDoctors();
     const services = AppointmentService.getServices();
     const emergencyPhone = AppointmentService.getEmergencyPhone();
-    const allBookings = await AppointmentService.getAllBookings();
+    const loginError = (req.query.error as string) || '';
+
+    if (!verifiedPatient) {
+      // Unauthenticated state: display secure centralized phone & magic link authentication interface
+      return res.render('patient/portal', {
+        title: 'بوابة المريض - تسجيل الدخول الآمن - مركز دينتال سيتي',
+        layout: 'layouts/dashboard',
+        portalType: 'patient',
+        isAuthenticated: false,
+        patientPhone: '',
+        patientName: '',
+        magicLink: '',
+        doctors,
+        services,
+        emergencyPhone,
+        allBookings: [],
+        focusedRef: '',
+        loginError
+      });
+    }
+
+    // Authenticated state: STRICTLY enforce privacy boundary - fetch only this patient's records
+    const patientBookings = await AppointmentService.getBookingsByPhone(verifiedPatient.phone);
+    
+    // If a specific booking ref was targeted, ensure it is included in the list
+    if (queryRef && !patientBookings.some(b => b.reference === queryRef)) {
+      const targeted = await AppointmentService.getBookingByReference(queryRef);
+      if (targeted) {
+        patientBookings.unshift(targeted);
+      }
+    }
+
+    // If no bookings found for this token (e.g. invalid or stale session), clear cookie and show login
+    if (patientBookings.length === 0) {
+      res.clearCookie('dc_patient_token');
+      return res.render('patient/portal', {
+        title: 'بوابة المريض - تسجيل الدخول الآمن - مركز دينتال سيتي',
+        layout: 'layouts/dashboard',
+        portalType: 'patient',
+        isAuthenticated: false,
+        patientPhone: '',
+        patientName: '',
+        magicLink: '',
+        doctors,
+        services,
+        emergencyPhone,
+        allBookings: [],
+        focusedRef: '',
+        loginError: 'لم يتم العثور على أي حجوزات مسجلة لهذا الحساب. يرجى تسجيل الدخول برقم هاتف مسجل أو حجز موعد جديد.'
+      });
+    }
+
+    const patientName = (patientBookings.length > 0 && patientBookings[0].patient_name)
+      ? patientBookings[0].patient_name
+      : 'مريض العيادة';
+    const magicLink = `${req.protocol}://${req.get('host')}/Patient/Portal?token=${encodeURIComponent(AppointmentService.createPatientToken(verifiedPatient.phone))}`;
 
     return res.render('patient/portal', {
-      title: 'بوابة المريض - مركز دينتال سيتي',
+      title: 'بوابة المريض وإدارة الحجوزات - مركز دينتال سيتي',
       layout: 'layouts/dashboard',
       portalType: 'patient',
+      isAuthenticated: true,
+      patientPhone: verifiedPatient.rawPhone,
+      patientName,
+      magicLink,
       doctors,
       services,
       emergencyPhone,
-      allBookings
+      allBookings: patientBookings,
+      focusedRef: queryRef,
+      loginError: ''
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error('Patient portal error:', msg);
     return res.status(500).render('error', { message: 'حدث خطأ أثناء عرض بوابة المريض.' });
+  }
+});
+
+// POST /Patient/Login (Centralized Token Authentication & Real-time Database Validation)
+appointmentRoutes.all(['/Patient/Login', '/patient/login'], async (req: Request, res: Response) => {
+  try {
+    const rawInput = (
+      req.body?.phoneOrRef ||
+      req.body?.phoneOrReference ||
+      req.body?.phone ||
+      req.body?.reference ||
+      req.query?.phoneOrRef ||
+      req.query?.phoneOrReference ||
+      req.query?.phone ||
+      req.query?.reference ||
+      ''
+    ).toString().trim();
+
+    if (!rawInput) {
+      const isAjax = req.xhr || req.headers['x-requested-with'] === 'XMLHttpRequest' || req.headers.accept?.includes('application/json');
+      if (isAjax) {
+        return res.status(400).json({ success: false, message: 'يرجى إدخال رقم الهاتف المسجل أو الرمز المرجعي للحجز.' });
+      }
+      return res.redirect('/Patient/Portal?error=' + encodeURIComponent('يرجى إدخال رقم الهاتف المسجل أو الرمز المرجعي للحجز.'));
+    }
+
+    let matchedBookings: Booking[] = [];
+    let targetPhone = '';
+    let targetReference = '';
+
+    // 1. First, attempt to match input as a Booking Reference Code in the database
+    const bookingByRef = await AppointmentService.getBookingByReference(rawInput);
+    if (bookingByRef && bookingByRef.patient_phone) {
+      targetPhone = bookingByRef.patient_phone;
+      targetReference = bookingByRef.reference;
+      matchedBookings = await AppointmentService.getBookingsByPhone(targetPhone);
+      if (!matchedBookings.some(b => b.reference === bookingByRef.reference)) {
+        matchedBookings.unshift(bookingByRef);
+      }
+    }
+
+    // 2. If not matched by reference, query database by phone number
+    if (matchedBookings.length === 0) {
+      matchedBookings = await AppointmentService.getBookingsByPhone(rawInput);
+      if (matchedBookings.length > 0) {
+        targetPhone = matchedBookings[0].patient_phone || rawInput;
+      }
+    }
+
+    // 3. Fallback: try cleaned numeric digits if input has 8+ digits
+    if (matchedBookings.length === 0) {
+      const cleanDigits = rawInput.replace(/\D/g, '');
+      if (cleanDigits.length >= 8) {
+        matchedBookings = await AppointmentService.getBookingsByPhone(cleanDigits);
+        if (matchedBookings.length > 0) {
+          targetPhone = matchedBookings[0].patient_phone || cleanDigits;
+        }
+      }
+    }
+
+    // 4. Strict Validation: Ensure the system successfully matches input against existing database records
+    if (matchedBookings.length === 0 || !targetPhone) {
+      const isAjax = req.xhr || req.headers['x-requested-with'] === 'XMLHttpRequest' || req.headers.accept?.includes('application/json');
+      if (isAjax) {
+        return res.status(404).json({
+          success: false,
+          message: 'لم يتم العثور على أي حجز مسجل برقم الهاتف أو الرمز المرجعي المدخل. يرجى التأكد من البيانات المدخلة أو حجز موعد جديد.'
+        });
+      }
+      return res.redirect('/Patient/Portal?error=' + encodeURIComponent('لم يتم العثور على أي حجز مسجل بالبيانات المدخلة.'));
+    }
+
+    // 5. Successful match: Generate secure centralized patient token
+    const token = AppointmentService.createPatientToken(targetPhone);
+    res.cookie('dc_patient_token', token, {
+      maxAge: 60 * 24 * 60 * 60 * 1000, // 60 days
+      httpOnly: true,
+      sameSite: 'lax'
+    });
+
+    // 6. Immediate Redirection to the patient's dedicated booking details page
+    const redirectUrl = targetReference
+      ? `/Patient/Portal?ref=${encodeURIComponent(targetReference)}`
+      : '/Patient/Portal';
+
+    const isAjax = req.xhr || req.headers['x-requested-with'] === 'XMLHttpRequest' || req.headers.accept?.includes('application/json');
+    if (isAjax) {
+      return res.json({
+        success: true,
+        message: 'تم التحقق بنجاح ومطابقة سجلات الحجز في قاعدة البيانات! جاري توجيهك...',
+        redirect: redirectUrl,
+        patientName: matchedBookings[0].patient_name,
+        totalBookings: matchedBookings.length,
+        matchedReference: targetReference || matchedBookings[0].reference
+      });
+    }
+
+    return res.redirect(redirectUrl);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('Patient login error:', msg);
+    return res.status(500).json({ success: false, message: 'حدث خطأ أثناء تسجيل الدخول.' });
   }
 });
 
@@ -923,9 +1175,10 @@ appointmentRoutes.post(['/Patient/Appointments/Cancel', '/patient/appointments/c
   }
 });
 
-// GET /Patient/Logout
+// GET /Patient/Logout (Clears Centralized Patient Token and redirects)
 appointmentRoutes.get(['/Patient/Logout', '/patient/logout'], (_req: Request, res: Response) => {
-  return res.redirect('/');
+  res.clearCookie('dc_patient_token');
+  return res.redirect('/Patient/Portal');
 });
 ````
 
@@ -934,15 +1187,15 @@ appointmentRoutes.get(['/Patient/Logout', '/patient/logout'], (_req: Request, re
 ### Doctor Portal & Dashboard Routes (doctor.routes.ts)
 
 - **المسار:** `Dental city/src/routes/doctor.routes.ts`
-- **عدد الأسطر:** 385 سطر
-- **الحجم:** 16.4 KB
+- **عدد الأسطر:** 557 سطر
+- **الحجم:** 24.9 KB
 
 ````typescript
 import { Router, Request, Response } from 'express';
 import { DoctorAuthService } from '../services/doctorAuthService.js';
 import { AppointmentService } from '../services/appointmentService.js';
 import { requireDoctorAuth } from '../middleware/auth.js';
-import { DoctorLoginSchema, ChangePasswordSchema, DoctorFormSchema, ScheduleUpdateSchema } from '../models/schemas.js';
+import { DoctorLoginSchema, ChangePasswordSchema, DoctorFormSchema, ScheduleUpdateSchema, StaffFormSchema } from '../models/schemas.js';
 
 export const doctorRoutes = Router();
 
@@ -953,7 +1206,7 @@ doctorRoutes.get(['/Doctor/Login', '/doctor/login'], (req: Request, res: Respons
   }
 
   return res.render('doctor/login', {
-    title: 'تسجيل دخول الكادر الطبي - دينتال سيتي',
+    title: 'تسجيل دخول الكادر الطبي - مركز دينتال سيتي',
     returnUrl: (req.query.returnUrl as string) || '/Doctor/Dashboard',
     errors: [],
     usernameOrEmail: ''
@@ -968,7 +1221,7 @@ doctorRoutes.post(['/Doctor/Login', '/doctor/login'], async (req: Request, res: 
     if (!parsed.success) {
       const errorMsgs = parsed.error.issues.map((e: { message: string }) => e.message);
       return res.status(400).render('doctor/login', {
-        title: 'تسجيل دخول الكادر الطبي - دينتال سيتي',
+        title: 'تسجيل دخول الكادر الطبي - مركز دينتال سيتي',
         returnUrl: (req.query.returnUrl as string) || '/Doctor/Dashboard',
         errors: errorMsgs,
         usernameOrEmail: (req.body.usernameOrEmail as string) || ''
@@ -981,7 +1234,7 @@ doctorRoutes.post(['/Doctor/Login', '/doctor/login'], async (req: Request, res: 
 
     if (!result.success) {
       return res.status(401).render('doctor/login', {
-        title: 'تسجيل دخول الكادر الطبي - دينتال سيتي',
+        title: 'تسجيل دخول الكادر الطبي - مركز دينتال سيتي',
         returnUrl: (req.query.returnUrl as string) || '/Doctor/Dashboard',
         errors: [result.errorMessage || 'بيانات الدخول غير صحيحة، يرجى المحاولة مرة أخرى.'],
         usernameOrEmail
@@ -1009,7 +1262,7 @@ doctorRoutes.post(['/Doctor/Login', '/doctor/login'], async (req: Request, res: 
     const msg = err instanceof Error ? err.message : String(err);
     console.error('Doctor login error:', msg);
     return res.status(500).render('doctor/login', {
-      title: 'تسجيل دخول الكادر الطبي - دينتال سيتي',
+      title: 'تسجيل دخول الكادر الطبي - مركز دينتال سيتي',
       returnUrl: (req.query.returnUrl as string) || '/Doctor/Dashboard',
       errors: ['حدث خطأ أثناء معالجة تسجيل الدخول، يرجى المحاولة مرة أخرى لاحقاً.'],
       usernameOrEmail: (req.body.usernameOrEmail as string) || ''
@@ -1026,23 +1279,33 @@ doctorRoutes.all(['/Doctor/Logout', '/doctor/logout'], (req: Request, res: Respo
 
 // GET /Doctor/Dashboard
 doctorRoutes.get(['/Doctor/Dashboard', '/doctor/dashboard'], requireDoctorAuth, async (req: Request, res: Response) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+
   try {
     const doctors = await AppointmentService.getDoctors(true);
+    const staff = await AppointmentService.getStaff();
     const services = AppointmentService.getServices();
     const configuredSlots = AppointmentService.getConfiguredSlots();
     const recentBookings = await AppointmentService.getAllBookings();
     const emergencyPhone = AppointmentService.getEmergencyPhone();
+    const shiftSettings = AppointmentService.getShiftSettings();
 
     return res.render('doctor/dashboard', {
-      title: 'لوحة التحكم وإدارة العيادة - دينتال سيتي',
+      title: 'لوحة التحكم وإدارة العيادة - مركز دينتال سيتي',
       layout: 'layouts/dashboard',
       portalType: 'admin',
       doctors,
+      staff,
       services,
       configuredSlots,
       recentBookings,
       emergencyPhone,
-      doctorUser: req.session.doctor
+      shiftSettings,
+      doctorUser: req.session.doctor,
+      supabaseUrl: process.env.SUPABASE_URL || 'https://uwyyntbsvhqmrlthmgvn.supabase.co',
+      supabaseKey: process.env.SUPABASE_KEY || process.env.SUPABASE_ANON_KEY || 'sb_publishable_MJntq3aqg2RNwM9cpqoeXQ_-oU2bIfr'
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -1053,274 +1316,436 @@ doctorRoutes.get(['/Doctor/Dashboard', '/doctor/dashboard'], requireDoctorAuth, 
 
 // Unified POST dispatcher for /Doctor/Dashboard supporting ?handler=...
 doctorRoutes.post(['/Doctor/Dashboard', '/doctor/dashboard'], requireDoctorAuth, async (req: Request, res: Response) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+
   const handler = (req.query.handler as string) || (req.body.handler as string);
   const isAjax = req.xhr || req.headers['x-requested-with'] === 'XMLHttpRequest' || req.headers.accept?.includes('application/json');
 
   try {
     switch (handler) {
-    case 'ChangePassword': {
-      const parsed = ChangePasswordSchema.safeParse(req.body);
-      if (!parsed.success) {
-        const msg = parsed.error.issues[0]?.message || 'بيانات كلمة المرور غير صالحة';
-        return res.json({ success: false, message: msg });
-      }
-
-      const usernameOrEmail = req.session.doctor?.email || req.session.doctor?.name || 'admin';
-      const result = await DoctorAuthService.changePassword(
-        usernameOrEmail,
-        parsed.data.currentPassword,
-        parsed.data.newPassword
-      );
-
-      return res.json(result);
-    }
-
-    case 'SaveDoctor': {
-      try {
-        const parsed = DoctorFormSchema.safeParse(req.body);
+      case 'ChangePassword': {
+        const parsed = ChangePasswordSchema.safeParse(req.body);
         if (!parsed.success) {
-          const msg = parsed.error.issues[0]?.message || 'بيانات الطبيب غير صالحة';
-          if (isAjax) return res.json({ success: false, message: msg });
-          req.session.flashMessage = { type: 'danger', text: msg };
-          return res.redirect('/Doctor/Dashboard');
+          const msg = parsed.error.issues[0]?.message || 'بيانات كلمة المرور غير صالحة';
+          return res.json({ success: false, message: msg });
         }
 
-        const saved = await AppointmentService.saveOrUpdateDoctor(parsed.data);
-        const msg = `تم حفظ بيانات الطبيب (${saved.name}) بنجاح وانعكست فورياً على شاشة الحجز.`;
-
-        if (isAjax) return res.json({ success: true, message: msg, doctor: saved });
-        req.session.flashMessage = { type: 'success', text: msg };
-        return res.redirect('/Doctor/Dashboard');
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        if (isAjax) return res.json({ success: false, message: msg });
-        req.session.flashMessage = { type: 'danger', text: msg };
-        return res.redirect('/Doctor/Dashboard');
-      }
-    }
-
-    case 'DeleteDoctor': {
-      const id = parseInt(req.body.id, 10);
-      const success = await AppointmentService.deleteDoctor(id);
-      const msg = success ? 'تم حذف الطبيب من قائمة العيادة بنجاح.' : 'تعذر العثور على الطبيب لحذفه.';
-
-      if (isAjax) return res.json({ success, message: msg });
-      req.session.flashMessage = { type: success ? 'success' : 'danger', text: msg };
-      return res.redirect('/Doctor/Dashboard');
-    }
-
-    case 'UpdateDoctorSchedule': {
-      try {
-        const parsed = ScheduleUpdateSchema.safeParse({
-          scheduleDoctorId: req.body.scheduleDoctorId,
-          scheduleWorkingHours: req.body.scheduleWorkingHours,
-          scheduleWorkingDays: req.body.scheduleWorkingDays,
-          scheduleOffDays: Array.isArray(req.body.scheduleOffDays)
-            ? req.body.scheduleOffDays
-            : (req.body.scheduleOffDays ? [req.body.scheduleOffDays] : []),
-          scheduleSelectedSlots: Array.isArray(req.body.scheduleSelectedSlots)
-            ? req.body.scheduleSelectedSlots
-            : (req.body.scheduleSelectedSlots ? [req.body.scheduleSelectedSlots] : [])
-        });
-
-        if (!parsed.success) {
-          const msg = parsed.error.issues[0]?.message || 'بيانات الجدول غير صالحة';
-          if (isAjax) return res.json({ success: false, message: msg });
-          req.session.flashMessage = { type: 'danger', text: msg };
-          return res.redirect('/Doctor/Dashboard');
-        }
-
-        const { scheduleDoctorId, scheduleWorkingHours, scheduleWorkingDays, scheduleOffDays, scheduleSelectedSlots } = parsed.data;
-        const success = await AppointmentService.updateDoctorSchedule(
-          scheduleDoctorId,
-          scheduleWorkingHours,
-          scheduleWorkingDays,
-          scheduleOffDays,
-          scheduleSelectedSlots
+        const usernameOrEmail = req.session.doctor?.email || req.session.doctor?.name || 'admin';
+        const result = await DoctorAuthService.changePassword(
+          usernameOrEmail,
+          parsed.data.currentPassword,
+          parsed.data.newPassword
         );
 
+        return res.json(result);
+      }
+
+      case 'SaveDoctor': {
+        try {
+          const parsed = DoctorFormSchema.safeParse(req.body);
+          if (!parsed.success) {
+            const msg = parsed.error.issues[0]?.message || 'بيانات الطبيب غير صالحة';
+            if (isAjax) return res.json({ success: false, message: msg });
+            req.session.flashMessage = { type: 'danger', text: msg };
+            return res.redirect('/Doctor/Dashboard');
+          }
+
+          const saved = await AppointmentService.saveOrUpdateDoctor(parsed.data);
+          const msg = `تم حفظ بيانات الطبيب (${saved.name}) بنجاح وانعكست فورياً على شاشة الحجز.`;
+
+          if (isAjax) return res.json({ success: true, message: msg, doctor: saved });
+          req.session.flashMessage = { type: 'success', text: msg };
+          return res.redirect('/Doctor/Dashboard');
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          if (isAjax) return res.json({ success: false, message: msg });
+          req.session.flashMessage = { type: 'danger', text: msg };
+          return res.redirect('/Doctor/Dashboard');
+        }
+      }
+
+      case 'DeleteDoctor': {
+        const id = parseInt(req.body.id, 10);
+        const success = await AppointmentService.deleteDoctor(id);
+        const msg = success ? 'تم حذف الطبيب من قائمة العيادة بنجاح.' : 'تعذر العثور على الطبيب لحذفه.';
+
+        if (isAjax) return res.json({ success, message: msg });
+        req.session.flashMessage = { type: success ? 'success' : 'danger', text: msg };
+        return res.redirect('/Doctor/Dashboard');
+      }
+
+      case 'UpdateDoctorSchedule': {
+        try {
+          const parsed = ScheduleUpdateSchema.safeParse({
+            scheduleDoctorId: req.body.scheduleDoctorId,
+            scheduleWorkingHours: req.body.scheduleWorkingHours,
+            scheduleWorkingDays: req.body.scheduleWorkingDays,
+            scheduleOffDays: Array.isArray(req.body.scheduleOffDays)
+              ? req.body.scheduleOffDays
+              : (req.body.scheduleOffDays ? [req.body.scheduleOffDays] : []),
+            scheduleSelectedSlots: Array.isArray(req.body.scheduleSelectedSlots)
+              ? req.body.scheduleSelectedSlots
+              : (req.body.scheduleSelectedSlots ? [req.body.scheduleSelectedSlots] : [])
+          });
+
+          if (!parsed.success) {
+            const msg = parsed.error.issues[0]?.message || 'بيانات الجدول غير صالحة';
+            if (isAjax) return res.json({ success: false, message: msg });
+            req.session.flashMessage = { type: 'danger', text: msg };
+            return res.redirect('/Doctor/Dashboard');
+          }
+
+          const { scheduleDoctorId, scheduleWorkingHours, scheduleWorkingDays, scheduleOffDays, scheduleSelectedSlots } = parsed.data;
+          const success = await AppointmentService.updateDoctorSchedule(
+            scheduleDoctorId,
+            scheduleWorkingHours,
+            scheduleWorkingDays,
+            scheduleOffDays,
+            scheduleSelectedSlots,
+            {
+              morning_start: req.body.morning_start,
+              morning_end: req.body.morning_end,
+              evening_start: req.body.evening_start,
+              evening_end: req.body.evening_end,
+              active_days: req.body.active_days || scheduleWorkingDays
+            }
+          );
+
+          const msg = success
+            ? 'تم حفظ وتحديث جدول ساعات ومواعيد الطبيب بنجاح، وانعكس فورياً على شاشة الحجز للمرضى.'
+            : 'تعذر العثور على الطبيب المحدد لتحديث جدوله.';
+
+          if (isAjax) {
+            return res.json({
+              success,
+              message: 'تم الحفظ بنجاح',
+              detail: msg,
+              doctorId: scheduleDoctorId,
+              workingHours: scheduleWorkingHours,
+              workingDays: scheduleWorkingDays,
+              offDays: scheduleOffDays,
+              availableSlots: scheduleSelectedSlots
+            });
+          }
+
+          req.session.flashMessage = { type: success ? 'success' : 'danger', text: msg };
+          return res.redirect('/Doctor/Dashboard');
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          if (isAjax) return res.json({ success: false, message: msg });
+          req.session.flashMessage = { type: 'danger', text: msg };
+          return res.redirect('/Doctor/Dashboard');
+        }
+      }
+
+      case 'AddSlot': {
+        const time = req.body.newSlotTime;
+        const period = req.body.newSlotPeriod;
+        if (!time) {
+          if (isAjax) return res.json({ success: false, message: 'يرجى إدخال وقت الموعد الجديد (مثال: 02:30 م).' });
+          req.session.flashMessage = { type: 'danger', text: 'يرجى إدخال وقت الموعد الجديد.' };
+          return res.redirect('/Doctor/Dashboard');
+        }
+
+        const success = AppointmentService.addSlot(time, period);
         const msg = success
-          ? 'تم حفظ وتحديث جدول ساعات ومواعيد الطبيب بنجاح، وانعكس فورياً على شاشة الحجز للمرضى.'
-          : 'تعذر العثور على الطبيب المحدد لتحديث جدوله.';
+          ? `تمت إضافة الموعد (${time} - ${period || 'افتراضي'}) لجدول المواعيد بنجاح.`
+          : 'هذا الموعد موجود بالفعل في الجدول.';
+
+        if (isAjax) return res.json({ success, message: msg, slotTime: time, slotPeriod: period });
+        req.session.flashMessage = { type: success ? 'success' : 'warning', text: msg };
+        return res.redirect('/Doctor/Dashboard');
+      }
+
+      case 'ToggleSlot': {
+        const time = req.body.slotTime;
+        const success = AppointmentService.toggleSlotAvailability(time);
+        const slots = AppointmentService.getConfiguredSlots();
+        const current = slots.find(s => s.time.toLowerCase() === (time || '').toLowerCase());
+        const isAvailable = current ? current.isAvailable : true;
+        const msg = isAvailable
+          ? `تم تفعيل موعد (${time}) وإتاحته للحجز.`
+          : `تم تعطيل موعد (${time}) مؤقتاً.`;
+
+        if (isAjax) return res.json({ success, message: msg, slotTime: time, isAvailable });
+        req.session.flashMessage = { type: 'success', text: msg };
+        return res.redirect('/Doctor/Dashboard');
+      }
+
+      case 'DeleteSlot': {
+        const time = req.body.slotTime;
+        const success = AppointmentService.deleteSlot(time);
+        const msg = success
+          ? `تم إزالة وقت الموعد (${time}) من جدول العيادة بنجاح.`
+          : 'تعذر العثور على الموعد لحذفه.';
+
+        if (isAjax) return res.json({ success, message: msg, slotTime: time });
+        req.session.flashMessage = { type: success ? 'success' : 'danger', text: msg };
+        return res.redirect('/Doctor/Dashboard');
+      }
+
+      case 'GenerateSlots': {
+        const interval = parseInt(req.body.intervalMinutes, 10) || 30;
+        const slots = AppointmentService.generateStandardSlots(interval);
+        AppointmentService.setGeneratedSlots(slots);
+        const msg = `تم توليد ${slots.length} موعد بنجاح بفارق ${interval} دقيقة للفترتين (الصباحية 09:00 ص - 12:00 م والمسائية 12:00 م - 06:00 م).`;
+
+        if (isAjax) {
+          return res.json({
+            success: true,
+            message: msg,
+            count: slots.length,
+            intervalMinutes: interval,
+            slots
+          });
+        }
+        req.session.flashMessage = { type: 'success', text: msg };
+        return res.redirect('/Doctor/Dashboard');
+      }
+
+      case 'AddService': {
+        const service = req.body.newService;
+        if (!service || !service.trim()) {
+          req.session.flashMessage = { type: 'danger', text: 'يرجى كتابة اسم التخصص أو الخدمة الجديدة.' };
+          return res.redirect('/Doctor/Dashboard');
+        }
+
+        const success = AppointmentService.addService(service);
+        const msg = success
+          ? `تم إضافة الخدمة (${service}) بنجاح إلى قائمة خدمات العيادة.`
+          : 'هذه الخدمة موجودة بالفعل بقائمة الخدمات.';
+
+        req.session.flashMessage = { type: success ? 'success' : 'warning', text: msg };
+        return res.redirect('/Doctor/Dashboard');
+      }
+
+      case 'DeleteService': {
+        const service = req.body.serviceName;
+        AppointmentService.deleteService(service);
+        req.session.flashMessage = { type: 'success', text: `تم حذف الخدمة (${service}) من قائمة الحجز.` };
+        return res.redirect('/Doctor/Dashboard');
+      }
+
+      case 'UpdateBookingStatus': {
+        const reference = req.body.bookingRef;
+        const status = req.body.newStatus;
+        const success = await AppointmentService.updateBookingStatus(reference, status);
+        const msg = `تم تحديث حالة الحجز (${reference}) إلى: ${status}.`;
+
+        if (isAjax) return res.json({ success, status, message: msg, reference });
+        req.session.flashMessage = { type: success ? 'success' : 'danger', text: msg };
+        return res.redirect('/Doctor/Dashboard#bookings-panel');
+      }
+
+      case 'CancelBooking': {
+        const reference = req.body.bookingRef;
+        const success = await AppointmentService.cancelBooking(reference);
+        const msg = success
+          ? `تم إلغاء الموعد (${reference}) بنجاح في قاعدة البيانات وتفريغ وقت الحجز في جدول المواعيد.`
+          : 'تعذر إلغاء الموعد.';
+
+        if (isAjax) return res.json({ success, status: 'ملغي', message: msg, reference });
+        req.session.flashMessage = { type: success ? 'success' : 'danger', text: msg };
+        return res.redirect('/Doctor/Dashboard#bookings-panel');
+      }
+
+      case 'DeleteBooking': {
+        const reference = req.body.bookingRef;
+        const success = await AppointmentService.deleteBooking(reference);
+        const msg = success
+          ? `تم حذف الحجز (${reference}) نهائياً من قاعدة البيانات وتفريغ الموعد.`
+          : 'تعذر حذف الحجز.';
+
+        if (isAjax) return res.json({ success, message: msg, reference });
+        req.session.flashMessage = { type: success ? 'success' : 'danger', text: msg };
+        return res.redirect('/Doctor/Dashboard#bookings-panel');
+      }
+
+      case 'UpdatePermissions': {
+        try {
+          const { id, type, role, isActive } = req.body;
+          const memberId = Number(id || 0);
+          const roleTitle = role || 'Doctor';
+          const msg = `تم تحديث مستوى صلاحيات ودور (${roleTitle}) بنجاح.`;
+          if (isAjax) {
+            return res.json({
+              success: true,
+              message: msg,
+              id: memberId,
+              type: type || 'doctor',
+              role: roleTitle,
+              isActive: isActive === 'true' || isActive === true || isActive === 'on'
+            });
+          }
+          req.session.flashMessage = { type: 'success', text: msg };
+          return res.redirect('/Doctor/Dashboard#staff-panel');
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          if (isAjax) return res.json({ success: false, message: msg });
+          req.session.flashMessage = { type: 'danger', text: msg };
+          return res.redirect('/Doctor/Dashboard#staff-panel');
+        }
+      }
+
+      case 'UpdateShiftSettings': {
+        try {
+          const { morningStart, morningEnd, eveningStart, eveningEnd, intervalMinutes } = req.body;
+          AppointmentService.updateShiftSettings({
+            morningStart,
+            morningEnd,
+            eveningStart,
+            eveningEnd,
+            intervalMinutes: intervalMinutes ? Number(intervalMinutes) : 60
+          });
+          const updated = AppointmentService.getShiftSettings();
+          const slots = AppointmentService.getConfiguredSlots();
+          const msg = `تم تحديث وتخصيص أوقات الورديات بنجاح (صباحي: ${updated.morningStart} - ${updated.morningEnd} | مسائي: ${updated.eveningStart} - ${updated.eveningEnd}).`;
+          if (isAjax) {
+            return res.json({ success: true, message: msg, shiftSettings: updated, configuredSlots: slots });
+          }
+          req.session.flashMessage = { type: 'success', text: msg };
+          return res.redirect('/Doctor/Dashboard#settings-panel');
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          if (isAjax) return res.json({ success: false, message: msg });
+          req.session.flashMessage = { type: 'danger', text: msg };
+          return res.redirect('/Doctor/Dashboard#settings-panel');
+        }
+      }
+
+      case 'UpdateSettings':
+      case 'UpdateEmergencyPhone': {
+        const phone = req.body.EmergencyPhone;
+        let success = true;
+        if (phone) {
+          success = AppointmentService.updateEmergencyPhone(phone);
+        }
+        if (req.body.morningStart || req.body.eveningStart) {
+          AppointmentService.updateShiftSettings({
+            morningStart: req.body.morningStart,
+            morningEnd: req.body.morningEnd,
+            eveningStart: req.body.eveningStart,
+            eveningEnd: req.body.eveningEnd,
+            intervalMinutes: req.body.intervalMinutes ? Number(req.body.intervalMinutes) : undefined
+          });
+        }
+        const msg = success
+          ? `تم حفظ وتأمين إعدادات الحساب ورقم الاستفسارات (${phone || 'المعتمد'}) بنجاح.`
+          : 'يرجى إدخال رقم هاتف صالح.';
 
         if (isAjax) {
           return res.json({
             success,
-            message: 'تم الحفظ بنجاح',
-            detail: msg,
-            doctorId: scheduleDoctorId,
-            workingHours: scheduleWorkingHours,
-            workingDays: scheduleWorkingDays,
-            offDays: scheduleOffDays,
-            availableSlots: scheduleSelectedSlots
+            message: msg,
+            emergencyPhone: phone,
+            shiftSettings: AppointmentService.getShiftSettings()
           });
         }
-
         req.session.flashMessage = { type: success ? 'success' : 'danger', text: msg };
-        return res.redirect('/Doctor/Dashboard');
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        if (isAjax) return res.json({ success: false, message: msg });
-        req.session.flashMessage = { type: 'danger', text: msg };
-        return res.redirect('/Doctor/Dashboard');
-      }
-    }
-
-    case 'AddSlot': {
-      const time = req.body.newSlotTime;
-      const period = req.body.newSlotPeriod;
-      if (!time) {
-        if (isAjax) return res.json({ success: false, message: 'يرجى إدخال وقت الموعد الجديد (مثال: 02:30 م).' });
-        req.session.flashMessage = { type: 'danger', text: 'يرجى إدخال وقت الموعد الجديد.' };
-        return res.redirect('/Doctor/Dashboard');
+        return res.redirect('/Doctor/Dashboard#settings');
       }
 
-      const success = AppointmentService.addSlot(time, period);
-      const msg = success
-        ? `تمت إضافة الموعد (${time} - ${period || 'افتراضي'}) لجدول المواعيد بنجاح.`
-        : 'هذا الموعد موجود بالفعل في الجدول.';
+      case 'QuickBook': {
+        try {
+          const { patientName, patientPhone, doctorId, service, appointmentDate, appointmentTime, notes } = req.body;
+          if (!patientName || !patientPhone || !doctorId || !service || !appointmentDate || !appointmentTime) {
+            return res.json({ success: false, message: 'يرجى استكمال جميع بيانات الحجز الإلزامية.' });
+          }
+          const booking = await AppointmentService.bookAppointment({
+            patientName,
+            patientPhone,
+            doctorId: parseInt(doctorId, 10),
+            selectedService: service,
+            appointmentDate,
+            appointmentTime,
+            patientNotes: notes || 'حجز مباشر من لوحة الإدارة'
+          });
+          return res.json({
+            success: true,
+            message: `تم تسجيل وتأكيد الحجز بنجاح برقم مرجعي (${booking.reference}).`,
+            booking
+          });
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          return res.json({ success: false, message: msg || 'تعذر تسجيل الحجز في قاعدة البيانات' });
+        }
+      }
 
-      if (isAjax) return res.json({ success, message: msg, slotTime: time, slotPeriod: period });
-      req.session.flashMessage = { type: success ? 'success' : 'warning', text: msg };
-      return res.redirect('/Doctor/Dashboard');
-    }
+      case 'AddStaff': {
+        try {
+          const parsed = StaffFormSchema.safeParse(req.body);
+          if (!parsed.success) {
+            const msg = parsed.error.issues[0]?.message || 'يرجى إدخال جميع بيانات الموظف (الاسم، الدور، ورقم الهاتف).';
+            if (isAjax) return res.json({ success: false, message: msg });
+            req.session.flashMessage = { type: 'danger', text: msg };
+            return res.redirect('/Doctor/Dashboard#staff');
+          }
+          const { name, role, phone } = parsed.data;
+          const savedStaff = await AppointmentService.addStaff({ name, role, phone });
+          const msg = `تمت إضافة الموظف (${savedStaff.name}) وتفعيل حسابه في قاعدة البيانات بنجاح.`;
+          if (isAjax) return res.json({ success: true, message: msg, staff: savedStaff });
+          req.session.flashMessage = { type: 'success', text: msg };
+          return res.redirect('/Doctor/Dashboard#staff');
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          if (isAjax) return res.json({ success: false, message: msg });
+          req.session.flashMessage = { type: 'danger', text: msg };
+          return res.redirect('/Doctor/Dashboard#staff');
+        }
+      }
 
-    case 'ToggleSlot': {
-      const time = req.body.slotTime;
-      const success = AppointmentService.toggleSlotAvailability(time);
-      const slots = AppointmentService.getConfiguredSlots();
-      const current = slots.find(s => s.time.toLowerCase() === (time || '').toLowerCase());
-      const isAvailable = current ? current.isAvailable : true;
-      const msg = isAvailable
-        ? `تم تفعيل موعد (${time}) وإتاحته للحجز.`
-        : `تم تعطيل موعد (${time}) مؤقتاً.`;
+      case 'DeleteStaff': {
+        try {
+          const staffId = Number(req.body.id || req.body.staffId || req.query.id);
+          if (!staffId || isNaN(staffId)) {
+            const msg = 'معرّف الموظف غير صالح.';
+            if (isAjax) return res.json({ success: false, message: msg });
+            req.session.flashMessage = { type: 'danger', text: msg };
+            return res.redirect('/Doctor/Dashboard#staff');
+          }
 
-      if (isAjax) return res.json({ success, message: msg, slotTime: time, isAvailable });
-      req.session.flashMessage = { type: 'success', text: msg };
-      return res.redirect('/Doctor/Dashboard');
-    }
+          const deleted = await AppointmentService.deleteStaff(staffId);
+          if (deleted) {
+            const msg = 'تم حذف الموظف من قاعدة البيانات بنجاح.';
+            if (isAjax) return res.json({ success: true, message: msg, staffId });
+            req.session.flashMessage = { type: 'success', text: msg };
+          } else {
+            const msg = 'تعذر حذف الموظف أو أنه غير موجود.';
+            if (isAjax) return res.json({ success: false, message: msg });
+            req.session.flashMessage = { type: 'danger', text: msg };
+          }
+          return res.redirect('/Doctor/Dashboard#staff');
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          if (isAjax) return res.json({ success: false, message: msg });
+          req.session.flashMessage = { type: 'danger', text: msg };
+          return res.redirect('/Doctor/Dashboard#staff');
+        }
+      }
 
-    case 'DeleteSlot': {
-      const time = req.body.slotTime;
-      const success = AppointmentService.deleteSlot(time);
-      const msg = success
-        ? `تم إزالة وقت الموعد (${time}) من جدول العيادة بنجاح.`
-        : 'تعذر العثور على الموعد لحذفه.';
-
-      if (isAjax) return res.json({ success, message: msg, slotTime: time });
-      req.session.flashMessage = { type: success ? 'success' : 'danger', text: msg };
-      return res.redirect('/Doctor/Dashboard');
-    }
-
-    case 'GenerateSlots': {
-      const interval = parseInt(req.body.intervalMinutes, 10) || 30;
-      const slots = AppointmentService.generateStandardSlots(interval);
-      AppointmentService.setGeneratedSlots(slots);
-      const msg = `تم توليد ${slots.length} موعد بنجاح بفارق ${interval} دقيقة للفترتين (الصباحية 09:00 ص - 12:00 م والمسائية 12:00 م - 06:00 م).`;
-
-      if (isAjax) {
-        return res.json({
-          success: true,
-          message: msg,
-          count: slots.length,
-          intervalMinutes: interval,
-          slots
+      case 'Logout': {
+        req.session.destroy(() => {
+          res.redirect('/');
         });
+        return;
       }
-      req.session.flashMessage = { type: 'success', text: msg };
-      return res.redirect('/Doctor/Dashboard');
-    }
 
-    case 'AddService': {
-      const service = req.body.newService;
-      if (!service || !service.trim()) {
-        req.session.flashMessage = { type: 'danger', text: 'يرجى كتابة اسم التخصص أو الخدمة الجديدة.' };
+      default: {
+        if (isAjax) return res.json({ success: false, message: 'إجراء غير معروف' });
         return res.redirect('/Doctor/Dashboard');
       }
-
-      const success = AppointmentService.addService(service);
-      const msg = success
-        ? `تم إضافة الخدمة (${service}) بنجاح إلى قائمة خدمات العيادة.`
-        : 'هذه الخدمة موجودة بالفعل بقائمة الخدمات.';
-
-      req.session.flashMessage = { type: success ? 'success' : 'warning', text: msg };
-      return res.redirect('/Doctor/Dashboard');
     }
-
-    case 'DeleteService': {
-      const service = req.body.serviceName;
-      AppointmentService.deleteService(service);
-      req.session.flashMessage = { type: 'success', text: `تم حذف الخدمة (${service}) من قائمة الحجز.` };
-      return res.redirect('/Doctor/Dashboard');
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`[CRITICAL] Error in Dashboard action (${handler}):`, msg);
+    if (isAjax) {
+      return res.status(500).json({ success: false, message: 'حدث خطأ في تنفيذ العملية، يرجى إعادة المحاولة لاحقاً.' });
     }
-
-    case 'UpdateBookingStatus': {
-      const reference = req.body.bookingRef;
-      const status = req.body.newStatus;
-      const success = await AppointmentService.updateBookingStatus(reference, status);
-      const msg = `تم تحديث حالة الحجز (${reference}) إلى: ${status}.`;
-
-      if (isAjax) return res.json({ success, status, message: msg, reference });
-      req.session.flashMessage = { type: success ? 'success' : 'danger', text: msg };
-      return res.redirect('/Doctor/Dashboard#bookings-panel');
-    }
-
-    case 'CancelBooking': {
-      const reference = req.body.bookingRef;
-      const success = await AppointmentService.cancelBooking(reference);
-      const msg = success
-        ? `تم إلغاء الموعد (${reference}) بنجاح في قاعدة البيانات وتفريغ وقت الحجز في جدول المواعيد.`
-        : 'تعذر إلغاء الموعد.';
-
-      if (isAjax) return res.json({ success, status: 'ملغي', message: msg, reference });
-      req.session.flashMessage = { type: success ? 'success' : 'danger', text: msg };
-      return res.redirect('/Doctor/Dashboard#bookings-panel');
-    }
-
-    case 'DeleteBooking': {
-      const reference = req.body.bookingRef;
-      const success = await AppointmentService.deleteBooking(reference);
-      const msg = success
-        ? `تم حذف الحجز (${reference}) نهائياً من قاعدة البيانات وتفريغ الموعد.`
-        : 'تعذر حذف الحجز.';
-
-      if (isAjax) return res.json({ success, message: msg, reference });
-      req.session.flashMessage = { type: success ? 'success' : 'danger', text: msg };
-      return res.redirect('/Doctor/Dashboard#bookings-panel');
-    }
-
-    case 'UpdateEmergencyPhone': {
-      const phone = req.body.EmergencyPhone;
-      const success = AppointmentService.updateEmergencyPhone(phone);
-      const msg = success
-        ? `تم حفظ وتحديث رقم هاتف الاستفسارات العاجلة (${phone}) بنجاح.`
-        : 'يرجى إدخال رقم هاتف صالح.';
-
-      req.session.flashMessage = { type: success ? 'success' : 'danger', text: msg };
-      return res.redirect('/Doctor/Dashboard');
-    }
-
-    case 'Logout': {
-      req.session.destroy(() => {
-        res.redirect('/');
-      });
-      return;
-    }
-
-    default: {
-      if (isAjax) return res.json({ success: false, message: 'إجراء غير معروف' });
-      return res.redirect('/Doctor/Dashboard');
-    }
+    req.session.flashMessage = { type: 'danger', text: 'حدث خطأ أثناء معالجة العملية.' };
+    return res.redirect('/Doctor/Dashboard');
   }
-} catch (err: unknown) {
-  const msg = err instanceof Error ? err.message : String(err);
-  console.error(`[CRITICAL] Error in Dashboard action (${handler}):`, msg);
-  if (isAjax) {
-    return res.status(500).json({ success: false, message: 'حدث خطأ في تنفيذ العملية، يرجى إعادة المحاولة لاحقاً.' });
-  }
-  req.session.flashMessage = { type: 'danger', text: 'حدث خطأ أثناء معالجة العملية.' };
-  return res.redirect('/Doctor/Dashboard');
-}
 });
 ````
 
@@ -1329,14 +1754,15 @@ doctorRoutes.post(['/Doctor/Dashboard', '/doctor/dashboard'], requireDoctorAuth,
 ### Appointment & Doctor Service (appointmentService.ts)
 
 - **المسار:** `Dental city/src/services/appointmentService.ts`
-- **عدد الأسطر:** 985 سطر
-- **الحجم:** 34.3 KB
+- **عدد الأسطر:** 1241 سطر
+- **الحجم:** 44.3 KB
 
 ````typescript
 import { supabase } from '../config/supabase.js';
 import {
   Doctor,
   Booking,
+  Staff,
   AppointmentSlot,
   DoctorScheduleResult,
   SupabaseBookingRow,
@@ -1346,6 +1772,7 @@ import {
 import { DoctorAuthService } from './doctorAuthService.js';
 import { WhatsAppNotificationService } from './whatsappService.js';
 import dotenv from 'dotenv';
+import crypto from 'crypto';
 
 dotenv.config();
 
@@ -1385,39 +1812,76 @@ export class AppointmentService {
   ];
 
   // ============================================================================
-  // Two-Shift Schedule Configuration (Mandatory 1-Hour Intervals)
-  // Morning Shift: 09:00 AM - 12:00 PM | Evening Shift: 12:00 PM - 06:00 PM
+  // Flexible Two-Shift Schedule Configuration (Interactive & Customizable)
+  // Morning Shift & Evening Shift with Configurable Hours & Intervals
   // ============================================================================
-  public static readonly MORNING_SHIFT_HOURS = '09:00 ص - 12:00 م';
-  public static readonly EVENING_SHIFT_HOURS = '12:00 م - 06:00 م';
-  public static readonly FULL_DAY_HOURS = '09:00 ص - 12:00 م | 12:00 م - 06:00 م';
+  public static shiftSettings = {
+    morningStart: '09:00 ص',
+    morningEnd: '12:00 م',
+    eveningStart: '12:00 م',
+    eveningEnd: '06:00 م',
+    intervalMinutes: 60
+  };
 
-  // Fixed 1-hour interval slots for Morning Shift (9 AM - 12 PM)
-  public static readonly MORNING_SLOTS: string[] = [
-    '09:00 ص',
-    '10:00 ص',
-    '11:00 ص'
-  ];
+  public static getShiftSettings() {
+    return { ...this.shiftSettings };
+  }
 
-  // Fixed 1-hour interval slots for Evening Shift (12 PM - 6 PM)
-  public static readonly EVENING_SLOTS: string[] = [
-    '12:00 م',
-    '01:00 م',
-    '02:00 م',
-    '03:00 م',
-    '04:00 م',
-    '05:00 م'
-  ];
+  public static updateShiftSettings(newSettings: Partial<typeof AppointmentService.shiftSettings>): boolean {
+    if (newSettings.morningStart) this.shiftSettings.morningStart = this.normalizeTimeSlot(newSettings.morningStart);
+    if (newSettings.morningEnd) this.shiftSettings.morningEnd = this.normalizeTimeSlot(newSettings.morningEnd);
+    if (newSettings.eveningStart) this.shiftSettings.eveningStart = this.normalizeTimeSlot(newSettings.eveningStart);
+    if (newSettings.eveningEnd) this.shiftSettings.eveningEnd = this.normalizeTimeSlot(newSettings.eveningEnd);
+    if (newSettings.intervalMinutes) this.shiftSettings.intervalMinutes = Number(newSettings.intervalMinutes);
 
-  // Combined 1-hour interval slots (9 slots per full working day)
-  public static readonly ALL_SHIFT_SLOTS: string[] = [
-    ...AppointmentService.MORNING_SLOTS,
-    ...AppointmentService.EVENING_SLOTS
-  ];
+    this.configuredSlots = this.getTwoShiftSlots();
+    return true;
+  }
+
+  public static generateSlotsBetween(startStr: string, endStr: string, intervalMinutes: number = 60): string[] {
+    const startObj = this.parseTimeTo24H(startStr);
+    const endObj = this.parseTimeTo24H(endStr);
+    let curMins = startObj.hour * 60 + startObj.minute;
+    const endMins = endObj.hour * 60 + endObj.minute;
+    const slots: string[] = [];
+    const interval = Math.max(15, intervalMinutes || 60);
+
+    while (curMins < endMins) {
+      slots.push(this.formatMinutesToArabic(curMins));
+      curMins += interval;
+    }
+    return slots;
+  }
+
+  public static get MORNING_SHIFT_HOURS(): string {
+    return `${this.shiftSettings.morningStart} - ${this.shiftSettings.morningEnd}`;
+  }
+
+  public static get EVENING_SHIFT_HOURS(): string {
+    return `${this.shiftSettings.eveningStart} - ${this.shiftSettings.eveningEnd}`;
+  }
+
+  public static get FULL_DAY_HOURS(): string {
+    return `${this.shiftSettings.morningStart} - ${this.shiftSettings.morningEnd} | ${this.shiftSettings.eveningStart} - ${this.shiftSettings.eveningEnd}`;
+  }
+
+  // Dynamic interval slots for Morning Shift
+  public static get MORNING_SLOTS(): string[] {
+    return this.generateSlotsBetween(this.shiftSettings.morningStart, this.shiftSettings.morningEnd, this.shiftSettings.intervalMinutes);
+  }
+
+  // Dynamic interval slots for Evening Shift
+  public static get EVENING_SLOTS(): string[] {
+    return this.generateSlotsBetween(this.shiftSettings.eveningStart, this.shiftSettings.eveningEnd, this.shiftSettings.intervalMinutes);
+  }
+
+  // Combined interval slots
+  public static get ALL_SHIFT_SLOTS(): string[] {
+    return [...this.MORNING_SLOTS, ...this.EVENING_SLOTS];
+  }
 
   /**
-   * Generates Two-Shift slots with mandatory 1-hour interval between appointments.
-   * Morning: 09:00 AM - 12:00 PM | Evening: 12:00 PM - 06:00 PM
+   * Generates Two-Shift slots with configurable interval between appointments.
    */
   public static getTwoShiftSlots(filterSlots?: string[]): AppointmentSlot[] {
     const filterSet = (filterSlots && filterSlots.length > 0)
@@ -1539,14 +2003,23 @@ export class AppointmentService {
     return { hour, minute };
   }
 
-  // --- Doctors CRUD with In-Memory Caching ---
+  public static formatTimeForDb(timeStr: string | null | undefined, defaultVal: string = '09:00:00'): string {
+    if (!timeStr || !timeStr.trim()) return defaultVal;
+    const trimmed = timeStr.trim();
+    if (/^\d{2}:\d{2}:\d{2}$/.test(trimmed)) return trimmed;
+    if (/^\d{1,2}:\d{2}$/.test(trimmed)) {
+      const [h, m] = trimmed.split(':');
+      return `${h.padStart(2, '0')}:${m}:00`;
+    }
+    const parsed = this.parseTimeTo24H(trimmed);
+    const hh = parsed.hour.toString().padStart(2, '0');
+    const mm = parsed.minute.toString().padStart(2, '0');
+    return `${hh}:${mm}:00`;
+  }
+
+  // --- Doctors CRUD with Real-Time Direct Supabase Persistence (Zero Stale Cache) ---
 
   public static async getDoctors(includeInactive: boolean = false): Promise<Doctor[]> {
-    const now = Date.now();
-    if (!includeInactive && this.allDoctorsCache && (now - this.allDoctorsCache.cachedAt < this.CACHE_TTL_MS)) {
-      return this.allDoctorsCache.doctors;
-    }
-
     try {
       let query = supabase.from('Doctors').select('*').order('id', { ascending: true });
       if (!includeInactive) {
@@ -1558,16 +2031,30 @@ export class AppointmentService {
         return [];
       }
 
-      const list = ((data as unknown as SupabaseDoctorRow[]) || []).map(d => ({
-        ...d,
+      const list: Doctor[] = ((data as unknown as SupabaseDoctorRow[]) || []).map(d => ({
+        id: d.id,
+        name: d.name,
+        title: d.title,
+        specialty: d.specialty,
+        climicroom: d.climicroom,
+        experienceyears: d.experienceyears,
+        PasswordHash: d.PasswordHash,
+        workinghours: d.workinghours,
+        OffDays: d.OffDays,
+        Rating: d.Rating,
+        AvatarIcon: d.AvatarIcon,
+        IsActive: d.IsActive,
+        WorkingDays: d.WorkingDays,
+        morning_start: d.morning_start || d['morning start'] || '09:00:00',
+        morning_end: d.morning_end || d['morning end'] || '12:00:00',
+        evening_start: d.evening_start || d['evening start'] || '12:00:00',
+        evening_end: d.evening_end || d['evening end'] || '18:00:00',
+        active_days: d.active_days || d['active days'] || d.WorkingDays || 'السبت - الخميس',
         AvaliableSlots: Array.isArray(d.AvaliableSlots)
           ? d.AvaliableSlots
-          : (typeof d.AvaliableSlots === 'string' ? JSON.parse(d.AvaliableSlots || '[]') : [])
+          : (typeof d.AvaliableSlots === 'string' ? JSON.parse(d.AvaliableSlots || '[]') : []),
+        created_at: d.created_at
       }));
-
-      if (!includeInactive) {
-        this.allDoctorsCache = { doctors: list, cachedAt: now };
-      }
 
       return list;
     } catch (err: unknown) {
@@ -1578,12 +2065,6 @@ export class AppointmentService {
   }
 
   public static async getDoctorById(id: number): Promise<Doctor | null> {
-    const now = Date.now();
-    const cached = this.doctorCache.get(id);
-    if (cached && (now - cached.cachedAt < this.CACHE_TTL_MS)) {
-      return cached.doctor;
-    }
-
     try {
       const { data, error } = await supabase
         .from('Doctors')
@@ -1598,13 +2079,30 @@ export class AppointmentService {
 
       const raw = data as unknown as SupabaseDoctorRow;
       const doc: Doctor = {
-        ...raw,
+        id: raw.id,
+        name: raw.name,
+        title: raw.title,
+        specialty: raw.specialty,
+        climicroom: raw.climicroom,
+        experienceyears: raw.experienceyears,
+        PasswordHash: raw.PasswordHash,
+        workinghours: raw.workinghours,
+        OffDays: raw.OffDays,
+        Rating: raw.Rating,
+        AvatarIcon: raw.AvatarIcon,
+        IsActive: raw.IsActive,
+        WorkingDays: raw.WorkingDays,
+        morning_start: raw.morning_start || raw['morning start'] || '09:00:00',
+        morning_end: raw.morning_end || raw['morning end'] || '12:00:00',
+        evening_start: raw.evening_start || raw['evening start'] || '12:00:00',
+        evening_end: raw.evening_end || raw['evening end'] || '18:00:00',
+        active_days: raw.active_days || raw['active days'] || raw.WorkingDays || 'السبت - الخميس',
         AvaliableSlots: Array.isArray(raw.AvaliableSlots)
           ? raw.AvaliableSlots
-          : (typeof raw.AvaliableSlots === 'string' ? JSON.parse(raw.AvaliableSlots || '[]') : [])
+          : (typeof raw.AvaliableSlots === 'string' ? JSON.parse(raw.AvaliableSlots || '[]') : []),
+        created_at: raw.created_at
       };
 
-      this.doctorCache.set(id, { doctor: doc, cachedAt: now });
       return doc;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -1631,15 +2129,26 @@ export class AppointmentService {
       passwordHash = DoctorAuthService.hashPassword('hodam1020300');
     }
 
-    const docToSave = {
+    const morningStart = this.formatTimeForDb(doctorData.morning_start, '09:00:00');
+    const morningEnd = this.formatTimeForDb(doctorData.morning_end, '12:00:00');
+    const eveningStart = this.formatTimeForDb(doctorData.evening_start, '12:00:00');
+    const eveningEnd = this.formatTimeForDb(doctorData.evening_end, '18:00:00');
+    const activeDays = doctorData.active_days || doctorData.WorkingDays || 'السبت - الخميس';
+
+    const docToSave: Record<string, any> = {
       name: doctorData.name,
       title: doctorData.title,
       specialty: doctorData.specialty,
       climicroom: doctorData.climicroom || 'العيادة الاستشارية (100) - المبنى الرئيسي',
       experienceyears: doctorData.experienceyears ?? 5,
       PasswordHash: passwordHash,
-      workinghours: doctorData.workinghours || '09:00 ص - 12:00 م | 12:00 م - 06:00 م',
-      WorkingDays: doctorData.WorkingDays || 'السبت - الخميس (الجمعة إجازة)',
+      workinghours: doctorData.workinghours || `${morningStart.substring(0, 5)} - ${morningEnd.substring(0, 5)} | ${eveningStart.substring(0, 5)} - ${eveningEnd.substring(0, 5)}`,
+      WorkingDays: activeDays,
+      'morning start': morningStart,
+      'morning end': morningEnd,
+      'evening start': eveningStart,
+      'evening end': eveningEnd,
+      'active days': activeDays,
       OffDays: doctorData.OffDays ?? 5,
       AvaliableSlots: doctorData.AvaliableSlots && doctorData.AvaliableSlots.length > 0
         ? doctorData.AvaliableSlots
@@ -1707,18 +2216,35 @@ export class AppointmentService {
     workingHours: string,
     workingDays: string,
     offDays: number[],
-    availableSlots: string[]
+    availableSlots: string[],
+    shiftDetails?: {
+      morning_start?: string;
+      morning_end?: string;
+      evening_start?: string;
+      evening_end?: string;
+      active_days?: string;
+    }
   ): Promise<boolean> {
     try {
       const offDay = (offDays && offDays.length > 0) ? offDays[0] : 5;
+      const updateData: Record<string, any> = {
+        workinghours: workingHours,
+        WorkingDays: workingDays,
+        OffDays: offDay,
+        AvaliableSlots: availableSlots
+      };
+
+      if (shiftDetails) {
+        if (shiftDetails.morning_start) updateData['morning start'] = this.formatTimeForDb(shiftDetails.morning_start, '09:00:00');
+        if (shiftDetails.morning_end) updateData['morning end'] = this.formatTimeForDb(shiftDetails.morning_end, '12:00:00');
+        if (shiftDetails.evening_start) updateData['evening start'] = this.formatTimeForDb(shiftDetails.evening_start, '12:00:00');
+        if (shiftDetails.evening_end) updateData['evening end'] = this.formatTimeForDb(shiftDetails.evening_end, '18:00:00');
+        if (shiftDetails.active_days) updateData['active days'] = shiftDetails.active_days;
+      }
+
       const { error } = await supabase
         .from('Doctors')
-        .update({
-          workinghours: workingHours,
-          WorkingDays: workingDays,
-          OffDays: offDay,
-          AvaliableSlots: availableSlots
-        })
+        .update(updateData)
         .eq('id', doctorId);
 
       if (error) {
@@ -1731,6 +2257,67 @@ export class AppointmentService {
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error('Exception in updateDoctorSchedule:', msg);
+      return false;
+    }
+  }
+
+  // --- Staff Management (Direct Supabase Persistence) ---
+
+  public static async getStaff(): Promise<Staff[]> {
+    try {
+      const { data, error } = await supabase
+        .from('Staff')
+        .select('*')
+        .order('id', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching staff from Supabase:', error.message);
+        return [];
+      }
+
+      return (data as unknown as Staff[]) || [];
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error('Exception in getStaff:', msg);
+      return [];
+    }
+  }
+
+  public static async addStaff(staffData: { name: string; role: string; phone: string }): Promise<Staff> {
+    const { data, error } = await supabase
+      .from('Staff')
+      .insert({
+        name: staffData.name,
+        role: staffData.role,
+        phone: staffData.phone
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error inserting staff into Supabase:', error.message);
+      throw new Error(`تعذر حفظ الموظف: ${error.message}`);
+    }
+
+    return data as unknown as Staff;
+  }
+
+  public static async deleteStaff(id: number): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from('Staff')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        console.error(`Error deleting staff #${id} from Supabase:`, error.message);
+        return false;
+      }
+
+      return true;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`Exception in deleteStaff(${id}):`, msg);
       return false;
     }
   }
@@ -2064,6 +2651,100 @@ export class AppointmentService {
     return list;
   }
 
+  /**
+   * Normalize phone number for consistent cross-device authentication and lookup
+   */
+  public static normalizePhone(phone: string): string {
+    if (!phone) return '';
+    return phone.replace(/[\s\-\+\(\)]/g, '').replace(/^002|^20/, '').replace(/^0/, '');
+  }
+
+  /**
+   * Centralized Token & Magic Link Generation for Patients
+   */
+  public static createPatientToken(phone: string): string {
+    const norm = this.normalizePhone(phone);
+    const payload = {
+      phone: norm,
+      rawPhone: phone.trim(),
+      created: Date.now(),
+      exp: Date.now() + 60 * 24 * 60 * 60 * 1000 // 60 days
+    };
+    const json = JSON.stringify(payload);
+    const b64 = Buffer.from(json).toString('base64url');
+    const secret = process.env.SESSION_SECRET || 'dc_center_patient_secret_2026';
+    const sig = crypto.createHmac('sha256', secret).update(b64).digest('hex').substring(0, 16);
+    return `${b64}.${sig}`;
+  }
+
+  /**
+   * Verify and decode patient session token
+   */
+  public static verifyPatientToken(token: string): { phone: string; rawPhone: string } | null {
+    if (!token || typeof token !== 'string') return null;
+    const parts = token.split('.');
+    if (parts.length !== 2) return null;
+    const [b64, sig] = parts;
+    const secret = process.env.SESSION_SECRET || 'dc_center_patient_secret_2026';
+    const expectedSig = crypto.createHmac('sha256', secret).update(b64).digest('hex').substring(0, 16);
+    if (sig !== expectedSig) return null;
+
+    try {
+      const payload = JSON.parse(Buffer.from(b64, 'base64url').toString('utf8'));
+      if (payload.exp && Date.now() > payload.exp) return null;
+      return { phone: payload.phone, rawPhone: payload.rawPhone || payload.phone };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Centralized query to fetch ONLY the bookings belonging to a specific patient by phone number.
+   * Strictly enforces patient privacy boundaries so users only view their own records across any device.
+   */
+  public static async getBookingsByPhone(phone: string): Promise<Booking[]> {
+    const norm = this.normalizePhone(phone);
+    if (!norm) return [];
+
+    const list: Booking[] = [];
+    const seenRefs = new Set<string>();
+
+    try {
+      const { data, error } = await supabase
+        .from('Bookings')
+        .select('*')
+        .order('id', { ascending: false });
+
+      if (data) {
+        const rows = data as unknown as SupabaseBookingRow[];
+        for (const row of rows) {
+          const rowNorm = this.normalizePhone(row.phone || '');
+          if (rowNorm === norm || (rowNorm && (rowNorm.endsWith(norm) || norm.endsWith(rowNorm)))) {
+            const booking = this.mapSupabaseRowToBooking(row);
+            if (!seenRefs.has(booking.reference)) {
+              seenRefs.add(booking.reference);
+              list.push(booking);
+            }
+          }
+        }
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`Exception in getBookingsByPhone(${phone}):`, msg);
+    }
+
+    // Also include in-memory recent bookings matching this phone
+    for (const [ref, b] of this.recentBookings.entries()) {
+      const bNorm = this.normalizePhone(b.patient_phone || '');
+      if ((bNorm === norm || (bNorm && (bNorm.endsWith(norm) || norm.endsWith(bNorm)))) && !seenRefs.has(ref)) {
+        seenRefs.add(ref);
+        list.unshift(b);
+      }
+    }
+
+    return list;
+  }
+
   private static mapSupabaseRowToBooking(row: SupabaseBookingRow, fallbackRef?: string): Booking {
     const notes = row.heath_notes || '';
     const refMatch = notes.match(RE_REF);
@@ -2325,7 +3006,7 @@ export class AppointmentService {
 
 - **المسار:** `Dental city/src/services/doctorAuthService.ts`
 - **عدد الأسطر:** 233 سطر
-- **الحجم:** 7.8 KB
+- **الحجم:** 7.9 KB
 
 ````typescript
 import crypto from 'crypto';
@@ -2436,7 +3117,7 @@ export class DoctorAuthService {
           success: false,
           doctorName: '',
           role: '',
-          errorMessage: 'كلمة المرور غير صحيحة. يرجى استخدام كلمة المرور المعتمدة hodam1020300 أو admin123'
+          errorMessage: 'بيانات تسجيل الدخول غير صحيحة. يرجى التحقق من اسم المستخدم وكلمة المرور والمحاولة مرة أخرى.'
         };
       }
 
@@ -2454,7 +3135,7 @@ export class DoctorAuthService {
         success: false,
         doctorName: '',
         role: '',
-        errorMessage: 'اسم المستخدم أو كلمة المرور غير صحيحة. كلمة المرور المعتمدة: hodam1020300'
+        errorMessage: 'بيانات تسجيل الدخول غير صحيحة. يرجى التحقق من اسم المستخدم وكلمة المرور والمحاولة مرة أخرى.'
       };
     } catch (err: unknown) {
       const errorMsg = err instanceof Error ? err.message : String(err);
@@ -2473,7 +3154,7 @@ export class DoctorAuthService {
         success: false,
         doctorName: '',
         role: '',
-        errorMessage: 'تعذر الاتصال بقاعدة البيانات. كلمة المرور المعتمدة: hodam1020300'
+        errorMessage: 'تعذر الاتصال بالخادم حالياً. يرجى المحاولة مرة أخرى لاحقاً.'
       };
     }
   }
@@ -2619,8 +3300,8 @@ export class WhatsAppNotificationService {
 ### القالب الرئيسي (main.ejs)
 
 - **المسار:** `Dental city/src/views/layouts/main.ejs`
-- **عدد الأسطر:** 112 سطر
-- **الحجم:** 6.1 KB
+- **عدد الأسطر:** 128 سطر
+- **الحجم:** 7.0 KB
 
 ````html
 <!DOCTYPE html>
@@ -2636,11 +3317,24 @@ export class WhatsAppNotificationService {
     <link rel="shortcut icon" type="image/png" href="/images/logo.png" />
     <link rel="apple-touch-icon" href="/images/logo.png" />
     
+    <!-- Early Theme Initialization to Prevent FOUC -->
+    <script>
+        (function () {
+            const stored = localStorage.getItem('dental_city_theme') || 'auto';
+            const resolved = (stored === 'auto')
+                ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+                : stored;
+            document.documentElement.setAttribute('data-bs-theme', resolved);
+            document.documentElement.classList.add(resolved === 'dark' ? 'theme-dark' : 'theme-light');
+        })();
+    </script>
+
     <!-- CSS Libraries -->
     <link rel="stylesheet" href="/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
     <link rel="stylesheet" href="/css/site.css" />
     <link rel="stylesheet" href="/css/dental_city.styles.css" />
+    <link rel="stylesheet" href="/css/theme.css" />
 </head>
 <body>
     <header>
@@ -2648,7 +3342,7 @@ export class WhatsAppNotificationService {
             <div class="container">
                 <a class="navbar-brand d-flex align-items-center gap-2" href="/">
                     <img src="/images/logo.png" alt="Dental City Logo" class="brand-logo rounded-2 shadow-sm" height="42" onerror="this.onerror=null;this.src='/images/logo.png.jpg';" />
-                    <span class="fw-bold text-dark fs-5">Dental <span class="text-primary">City</span></span>
+                    <span class="fw-bold text-primary fs-5">مركز دينتال سيتي</span>
                 </a>
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
                         aria-expanded="false" aria-label="Toggle navigation">
@@ -2681,6 +3375,8 @@ export class WhatsAppNotificationService {
                         <% } %>
                     </ul>
                     <div class="d-flex align-items-center gap-2">
+                        <!-- Theme Toggle Button (Light / Dark / System Sync) -->
+                        <%- include('../partials/theme-toggle', { idPrefix: 'mainNavbarThemeToggle', compact: false }) %>
                         <span class="badge bg-light text-dark border px-2 py-1">
                             <i class="bi bi-person-badge text-primary me-1"></i><%= (typeof user !== 'undefined' && user && user.name) ? user.name : 'د. حازم حجاج (رئيس الأطباء)' %>
                         </span>
@@ -2714,7 +3410,7 @@ export class WhatsAppNotificationService {
         <div class="container d-flex flex-column flex-md-row justify-content-between align-items-center gap-3">
             <div class="d-flex align-items-center gap-2">
                 <img src="/images/logo.png" alt="Dental City" height="28" class="rounded-1" onerror="this.onerror=null;this.src='/images/logo.png.jpg';" />
-                <span>&copy; 2026 - Dental City Clinic. All rights reserved.</span>
+                <span>&copy; 2026 - مركز دينتال سيتي لطب وجراحة الأسنان (Dental City Center). جميع الحقوق محفوظة.</span>
             </div>
             <div class="text-secondary fw-medium d-flex align-items-center flex-wrap gap-2">
                 <i class="bi bi-code-slash text-primary me-1"></i>
@@ -2731,6 +3427,7 @@ export class WhatsAppNotificationService {
     <script src="/lib/jquery/dist/jquery.min.js"></script>
     <script src="/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/js/site.js"></script>
+    <script src="/js/theme.js"></script>
 </body>
 </html>
 
@@ -2742,7 +3439,7 @@ export class WhatsAppNotificationService {
 
 - **المسار:** `Dental city/src/views/index.ejs`
 - **عدد الأسطر:** 101 سطر
-- **الحجم:** 5.5 KB
+- **الحجم:** 5.6 KB
 
 ````html
 <div class="py-4" style="direction: rtl; text-align: right; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
@@ -2753,7 +3450,7 @@ export class WhatsAppNotificationService {
                 <span class="badge bg-primary-subtle text-primary px-3 py-2 rounded-pill fw-semibold mb-3">
                     <i class="bi bi-stars"></i> رعاية متكاملة لابتسامتك
                 </span>
-                <h1 class="display-5 fw-bold text-dark mb-3">مركز دينتال سيتي (Dental City)</h1>
+                <h1 class="display-5 fw-bold text-dark mb-3"><span class="text-primary fw-bold">مركز دينتال سيتي</span> (Dental City Center)</h1>
                 <p class="lead text-muted mb-4">
                     نقدم أحدث الحلول العلاجية والتجميلية لطب الأسنان بأعلى معايير الجودة والتعقيم وبأيدي نخبة من الاستشاريين المتخصصين. احجز موعدك الآن بكل سهولة عبر منصتنا الإلكترونية.
                 </p>
@@ -2821,7 +3518,7 @@ export class WhatsAppNotificationService {
     <% if (typeof doctors !== 'undefined' && doctors.length > 0) { %>
     <div class="card border-0 shadow-sm rounded-4 p-4 mb-4">
         <h4 class="fw-bold mb-3 text-dark">
-            <i class="bi bi-people-fill text-primary me-2"></i> استشاريو وأطباء مركز دينتال سيتي
+            <i class="bi bi-people-fill text-primary me-2"></i> استشاريو وأطباء <span class="text-primary fw-bold">مركز دينتال سيتي</span>
         </h4>
         <div class="row g-3">
             <% doctors.forEach(doc => { %>
@@ -2852,8 +3549,8 @@ export class WhatsAppNotificationService {
 ### واجهة حجز المواعيد (book.ejs)
 
 - **المسار:** `Dental city/src/views/appointments/book.ejs`
-- **عدد الأسطر:** 857 سطر
-- **الحجم:** 45.5 KB
+- **عدد الأسطر:** 883 سطر
+- **الحجم:** 46.3 KB
 
 ````html
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
@@ -2994,6 +3691,14 @@ export class WhatsAppNotificationService {
         box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08);
     }
 
+    [data-bs-theme="dark"] .summary-card,
+    [data-theme="dark"] .summary-card,
+    body.dark-mode .summary-card {
+        background: #1e293b !important;
+        border-color: #334155 !important;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4) !important;
+    }
+
     .summary-item {
         display: flex;
         justify-content: space-between;
@@ -3003,13 +3708,31 @@ export class WhatsAppNotificationService {
         font-size: 0.92rem;
     }
 
+    [data-bs-theme="dark"] .summary-item,
+    [data-theme="dark"] .summary-item,
+    body.dark-mode .summary-item {
+        border-bottom-color: #334155 !important;
+    }
+
     .summary-label {
         color: #64748b;
+    }
+
+    [data-bs-theme="dark"] .summary-label,
+    [data-theme="dark"] .summary-label,
+    body.dark-mode .summary-label {
+        color: #94a3b8 !important;
     }
 
     .summary-value {
         font-weight: 600;
         color: #0f172a;
+    }
+
+    [data-bs-theme="dark"] .summary-value,
+    [data-theme="dark"] .summary-value,
+    body.dark-mode .summary-value {
+        color: #f8fafc !important;
     }
 
     .btn-submit-booking {
@@ -3041,7 +3764,7 @@ export class WhatsAppNotificationService {
                 حجز موعد عيادة الأسنان
             </h1>
             <p class="mb-0 text-white-50 fs-6">
-                مرحباً بك في مركز دينتال سيتي (Dental City). يرجى تعبئة بيانات المريض واختيار الطبيب والموعد المناسب لإتمام الحجز بكل سهولة.
+                مرحباً بك في <span class="text-primary fw-bold">مركز دينتال سيتي</span> (Dental City Center). يرجى تعبئة بيانات المريض واختيار الطبيب والموعد المناسب لإتمام الحجز بكل سهولة.
             </p>
         </div>
         <div class="mt-3 mt-md-0">
@@ -3812,7 +4535,7 @@ export class WhatsAppNotificationService {
                 </div>
                 <h2 class="fw-bold mb-1">تم تأكيد حجزك بنجاح!</h2>
                 <p class="mb-0 text-white-50 fs-6">
-                    شكراً لاختيارك مركز دينتال سيتي (Dental City). نتطلع لتقديم أفضل رعاية لابتسامتك.
+                    شكراً لاختيارك <span class="text-primary fw-bold">مركز دينتال سيتي</span> (Dental City Center). نتطلع لتقديم أفضل رعاية لابتسامتك.
                 </p>
             </div>
 
@@ -3954,8 +4677,8 @@ export class WhatsAppNotificationService {
 ### واجهة تسجيل دخول الطبيب (login.ejs)
 
 - **المسار:** `Dental city/src/views/doctor/login.ejs`
-- **عدد الأسطر:** 156 سطر
-- **الحجم:** 6.6 KB
+- **عدد الأسطر:** 194 سطر
+- **الحجم:** 7.8 KB
 
 ````html
 <style>
@@ -4016,6 +4739,43 @@ export class WhatsAppNotificationService {
         transform: translateY(-1px);
         color: white;
     }
+
+    [data-bs-theme="dark"] .login-card {
+        background: #1e293b !important;
+        border-color: #334155 !important;
+        color: #f8fafc !important;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7) !important;
+    }
+
+    [data-bs-theme="dark"] .login-card .form-label {
+        color: #f8fafc !important;
+    }
+
+    [data-bs-theme="dark"] .login-card .form-control {
+        background-color: #0f172a !important;
+        border-color: #334155 !important;
+        color: #f8fafc !important;
+    }
+
+    [data-bs-theme="dark"] .login-card .form-control:focus {
+        border-color: #38bdf8 !important;
+        box-shadow: 0 0 0 0.25rem rgba(56, 189, 248, 0.25) !important;
+    }
+
+    [data-bs-theme="dark"] .login-card .input-group-text {
+        background-color: #0f172a !important;
+        border-color: #334155 !important;
+        color: #94a3b8 !important;
+    }
+
+    [data-bs-theme="dark"] .login-card .form-check-label {
+        color: #cbd5e1 !important;
+    }
+
+    [data-bs-theme="dark"] .login-card a.text-muted {
+        color: #94a3b8 !important;
+    }
+
 </style>
 
 <div class="login-wrapper py-4">
@@ -4025,9 +4785,10 @@ export class WhatsAppNotificationService {
             <div class="lock-circle">
                 <i class="bi bi-shield-lock-fill fs-2"></i>
             </div>
-            <h3 class="fw-bold mb-1">بوابة الأطباء والإدارة</h3>
+            <h3 class="fw-bold mb-1" style="color: #38bdf8 !important;">مركز دينتال سيتي</h3>
+            <h5 class="fw-semibold mb-2 text-white-50 fs-6">بوابة الأطباء والإدارة الطبية</h5>
             <p class="text-white-50 small mb-0">
-                منطقة محمية خاصة بكادر عيادات دينتال سيتي (Dental City)
+                منطقة محمية خاصة بكادر عيادات مركز دينتال سيتي (Dental City Center)
             </p>
         </div>
 
@@ -4120,10 +4881,41 @@ export class WhatsAppNotificationService {
 ### لوحة تحكم الطبيب والعيادة (dashboard.ejs)
 
 - **المسار:** `Dental city/src/views/doctor/dashboard.ejs`
-- **عدد الأسطر:** 2000 سطر
-- **الحجم:** 120.8 KB
+- **عدد الأسطر:** 4209 سطر
+- **الحجم:** 242.4 KB
 
 ````html
+<%
+  const allBookings = (typeof recentBookings !== 'undefined' && recentBookings && Array.isArray(recentBookings)) ? recentBookings : [];
+  const confirmedCount = allBookings.filter(b => b.status === 'مؤكد').length;
+  const pendingCount = allBookings.filter(b => b.status === 'قيد الانتظار' || b.status === 'pending' || !b.status).length;
+  const completedCount = allBookings.filter(b => b.status === 'مكتمل').length;
+  const cancelledCount = allBookings.filter(b => b.status === 'ملغي').length;
+
+  const doctorsList = (typeof doctors !== 'undefined' && doctors && Array.isArray(doctors)) ? doctors : [];
+  const activeDoctorsCount = doctorsList.filter(d => d.IsActive).length;
+
+  const servicesList = (typeof services !== 'undefined' && services && Array.isArray(services)) ? services : [];
+  
+  let totalEstimatedRevenue = 0;
+  allBookings.forEach(b => {
+    if (b.status === 'مؤكد' || b.status === 'مكتمل') {
+      const s = servicesList.find(srv => srv.name === b.selected_service);
+      totalEstimatedRevenue += (s && s.price) ? Number(s.price) : 350;
+    }
+  });
+
+  const avgConsultationFee = servicesList.length > 0 
+    ? Math.round(servicesList.reduce((acc, s) => acc + (Number(s.price) || 0), 0) / servicesList.length)
+    : 350;
+
+  const emergencyPhoneNum = (typeof emergencyPhone !== 'undefined' && emergencyPhone) ? emergencyPhone : '01551388988';
+
+  const recentUrgentBookings = [...allBookings]
+    .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
+    .slice(0, 5);
+%>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 
 <style>
@@ -4246,271 +5038,1134 @@ export class WhatsAppNotificationService {
         border-color: #bbf7d0 !important;
         color: #166534 !important;
     }
+
     .status-select-قيدالانتظار {
         background-color: #fefce8 !important;
         border-color: #fef08a !important;
         color: #854d0e !important;
     }
+
     .status-select-مكتمل {
         background-color: #f0f9ff !important;
         border-color: #bae6fd !important;
         color: #0369a1 !important;
     }
+
     .status-select-ملغي {
         background-color: #fef2f2 !important;
         border-color: #fecaca !important;
         color: #991b1b !important;
     }
+
     .row-cancelled {
         background-color: #fff1f2 !important;
         opacity: 0.8;
     }
+
     .row-cancelled .booking-time-col {
         text-decoration: line-through;
         color: #be123c !important;
+    }
+
+    .dash-header-card .btn {
+        white-space: nowrap;
+        font-size: 0.85rem;
+        font-weight: 600;
+        padding: 0.45rem 1rem;
+        border-radius: 50rem;
+    }
+
+    /* Uniform Proportional Avatar Initials */
+    .doctor-avatar-circle {
+        width: 44px;
+        height: 44px;
+        min-width: 44px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 1.15rem;
+        background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+        color: #ffffff;
+        box-shadow: 0 3px 8px rgba(2, 132, 199, 0.25);
+    }
+
+    .staff-avatar-circle {
+        width: 40px;
+        height: 40px;
+        min-width: 40px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 1rem;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Doctor Card Compact Layout & Uniform Sizing */
+    .doctor-card-item {
+        position: relative !important;
+        overflow: visible !important;
+        border-radius: 1rem !important;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        background-color: #ffffff;
+    }
+
+    .doctor-card-item:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08) !important;
+    }
+
+    .doctor-card-header {
+        position: relative !important;
+        width: 100% !important;
+        display: flex !important;
+        align-items: flex-start !important;
+        justify-content: space-between !important;
+        gap: 0.5rem !important;
+    }
+
+    .doctor-card-header > div:first-child {
+        min-width: 0 !important;
+        flex: 1 1 auto !important;
+    }
+
+    .doctor-card-status-badge {
+        position: static !important;
+        font-size: 0.72rem !important;
+        font-weight: 700 !important;
+        line-height: 1.2 !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 0.25rem !important;
+        white-space: nowrap !important;
+        flex-shrink: 0 !important;
+        align-self: flex-start !important;
+        margin: 0 !important;
+        padding: 0.28rem 0.65rem !important;
+        border-radius: 50rem !important;
+        max-width: fit-content !important;
+    }
+
+    /* Doctor & Staff Management Actions Spacing & Overlap Prevention */
+    .doctor-card-actions {
+        width: 100%;
+    }
+
+    .doctor-card-actions .btn {
+        white-space: nowrap !important;
+        font-size: 0.81rem !important;
+        font-weight: 600 !important;
+        padding: 0.38rem 0.6rem !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        border-radius: 50rem !important;
+        line-height: 1.2 !important;
+    }
+
+    .staff-action-buttons {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: nowrap;
+    }
+
+    .staff-action-buttons .btn {
+        white-space: nowrap !important;
+        font-size: 0.82rem !important;
+        font-weight: 600 !important;
+        padding: 0.38rem 0.85rem !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        border-radius: 50rem !important;
+    }
+
+    [data-bs-theme="dark"] .delete-staff-btn {
+        border-color: #ef4444 !important;
+        color: #f87171 !important;
+    }
+
+    [data-bs-theme="dark"] .delete-staff-btn:hover {
+        background-color: #ef4444 !important;
+        color: #ffffff !important;
+    }
+
+
+
+    [data-bs-theme="dark"] .stat-card,
+    [data-bs-theme="dark"] .panel-card,
+    [data-bs-theme="dark"] .doctor-card-item {
+        background-color: #1e293b !important;
+        border-color: #334155 !important;
+        color: #f8fafc !important;
+        position: relative !important;
+        overflow: visible !important;
+    }
+
+    [data-bs-theme="dark"] .doctor-card-status-badge.bg-success-subtle {
+        background-color: rgba(34, 197, 94, 0.18) !important;
+        border-color: rgba(34, 197, 94, 0.4) !important;
+        color: #4ade80 !important;
+    }
+
+    [data-bs-theme="dark"] .doctor-card-status-badge.bg-secondary-subtle {
+        background-color: rgba(148, 163, 184, 0.18) !important;
+        border-color: rgba(148, 163, 184, 0.4) !important;
+        color: #cbd5e1 !important;
+    }
+
+    .emergency-phone-card {
+        background: linear-gradient(to right, #ffffff, #f0fdf4);
+        border-right: 5px solid #0284c7 !important;
+    }
+
+    [data-bs-theme="dark"] .emergency-phone-card {
+        background: linear-gradient(to right, #1e293b, #0f172a) !important;
+        border: 1px solid #334155 !important;
+        border-right: 5px solid #38bdf8 !important;
+        color: #f8fafc !important;
+    }
+
+
+
+
+    /* High-Contrast Dark Mode Doctor Cards & Typography */
+    [data-bs-theme="dark"] .doctor-card-item {
+        background-color: #1e293b !important;
+        border: 1.5px solid #334155 !important;
+        color: #f8fafc !important;
+    }
+
+    [data-bs-theme="dark"] .doctor-card-item .doc-name-header,
+    [data-bs-theme="dark"] .doctor-card-item h6,
+    [data-bs-theme="dark"] .doctor-card-item .text-dark,
+    [data-bs-theme="dark"] .doctor-card-item .fw-bold.text-dark {
+        color: #ffffff !important;
+        font-weight: 700 !important;
+    }
+
+    [data-bs-theme="dark"] .doctor-card-item .text-primary {
+        color: #38bdf8 !important;
+        font-weight: 600 !important;
+    }
+
+    [data-bs-theme="dark"] .doctor-card-item .text-muted,
+    [data-bs-theme="dark"] .doctor-card-item small.text-muted {
+        color: #cbd5e1 !important;
+    }
+
+    [data-bs-theme="dark"] .doctor-schedule-box {
+        background-color: #0f172a !important;
+        border: 1px solid #334155 !important;
+        color: #f1f5f9 !important;
+    }
+
+    [data-bs-theme="dark"] .doctor-schedule-box .text-dark {
+        color: #f8fafc !important;
+    }
+
+    [data-bs-theme="dark"] .doctor-schedule-box .text-muted {
+        color: #cbd5e1 !important;
+    }
+
+    [data-bs-theme="dark"] .doctor-schedule-box .text-primary {
+        color: #38bdf8 !important;
+    }
+
+    [data-bs-theme="dark"] .doctor-card-item .edit-doctor-action-btn,
+    [data-bs-theme="dark"] .doctor-card-item .btn-outline-primary {
+        color: #38bdf8 !important;
+        border-color: #0284c7 !important;
+    }
+
+    [data-bs-theme="dark"] .doctor-card-item .edit-doctor-action-btn:hover,
+    [data-bs-theme="dark"] .doctor-card-item .btn-outline-primary:hover {
+        background-color: #0284c7 !important;
+        color: #ffffff !important;
+    }
+
+    [data-bs-theme="dark"] .doctor-card-item .schedule-doctor-action-btn,
+    [data-bs-theme="dark"] .doctor-card-item .btn-outline-info {
+        color: #38bdf8 !important;
+        border-color: #0284c7 !important;
+    }
+
+    [data-bs-theme="dark"] .doctor-card-item .schedule-doctor-action-btn:hover,
+    [data-bs-theme="dark"] .doctor-card-item .btn-outline-info:hover {
+        background-color: #0284c7 !important;
+        color: #ffffff !important;
+    }
+
+    [data-bs-theme="dark"] .form-label,
+    [data-bs-theme="dark"] label,
+    [data-bs-theme="dark"] .text-dark {
+        color: #f8fafc !important;
     }
 </style>
 
 <div class="doctor-dash-wrapper py-3">
     <!-- رأس لوحة التحكم -->
-    <div class="dash-header-card d-md-flex justify-content-between align-items-center">
-        <div>
-            <div class="d-flex align-items-center gap-2 mb-2">
-                <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-1 rounded-pill">
-                    <i class="bi bi-circle-fill fs-6 me-1"></i> النظام متصل وجاهز للعمل
-                </span>
-            </div>
-            <h1 class="h3 fw-bold mb-1">
-                <i class="bi bi-gear-wide-connected text-primary me-2"></i>
-                لوحة تحكم الطبيب وإدارة العيادة
-            </h1>
-            <p class="text-white-50 mb-0 small">
-                تحكم كامل في الأطباء، المواعيد، وجدول العيادة مع حفظ وتحديث فوري ومباشر للبيانات.
-            </p>
-        </div>
-        <div class="mt-3 mt-md-0 d-flex flex-wrap align-items-center gap-2">
-            <div class="d-flex align-items-center gap-2 bg-dark bg-opacity-50 px-3 py-1 rounded-pill border border-secondary">
-                <i class="bi bi-person-check-fill text-success"></i>
-                <span class="small text-white fw-semibold"><%= (typeof doctorUser !== 'undefined' && doctorUser) ? doctorUser.name : 'د. حازم حجاج' %></span>
-            </div>
-            <a href="/Appointments/Book" target="_blank" class="btn btn-outline-light btn-sm px-3 rounded-pill">
-                <i class="bi bi-box-arrow-up-right me-1"></i> معاينة صفحة الحجز
-            </a>
-            <button type="button" class="btn btn-primary btn-sm px-3 rounded-pill" onclick="openAddDoctorModal()">
-                <i class="bi bi-person-plus-fill me-1"></i> إضافة طبيب جديد
-            </button>
-            <button type="button" class="btn btn-outline-warning btn-sm px-3 rounded-pill text-white" onclick="openChangePasswordModal()" title="تغيير كلمة المرور">
-                <i class="bi bi-key-fill me-1"></i> تغيير كلمة المرور
-            </button>
-            <form method="post" action="/Doctor/Dashboard?handler=Logout" class="d-inline">
-                <button type="submit" class="btn btn-outline-danger btn-sm px-3 rounded-pill text-white" title="تسجيل الخروج">
-                    <i class="bi bi-box-arrow-right me-1"></i> خروج
-                </button>
-            </form>
-        </div>
-    </div>
-
-    <!-- إعدادات رقم الاستفسارات العاجلة للعيادة -->
-    <div class="card border-0 shadow-sm rounded-4 mb-4" style="background: linear-gradient(to right, #ffffff, #f0fdf4); border-right: 5px solid #0284c7 !important;">
-        <div class="card-body p-3 p-md-4">
-            <div class="row align-items-center g-3">
-                <div class="col-lg-7">
-                    <div class="d-flex align-items-center gap-3">
-                        <div class="stat-icon bg-primary-subtle text-primary rounded-circle flex-shrink-0" style="width: 50px; height: 50px; display: flex; align-items: center; justify-content: center;">
-                            <i class="bi bi-telephone-inbound-fill fs-4"></i>
-                        </div>
-                        <div>
-                            <h5 class="fw-bold mb-1 text-dark">رقم هاتف الاستفسارات العاجلة</h5>
-                            <p class="text-muted small mb-0">
-                                يظهر هذا الرقم لجميع المرضى في أسفل شاشة الحجز فور حفظه.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-lg-5">
-                    <form method="post" action="/Doctor/Dashboard?handler=UpdateEmergencyPhone" class="d-flex align-items-center gap-2">
-                        <div class="input-group">
-                            <span class="input-group-text bg-white border-primary-subtle text-primary">
-                                <i class="bi bi-telephone"></i>
-                            </span>
-                            <input name="EmergencyPhone" value="<%= emergencyPhone %>" class="form-control border-primary-subtle font-monospace fw-bold" 
-                                   placeholder="مثال: 01551388988" dir="ltr" style="letter-spacing: 1px;" required />
-                        </div>
-                        <button type="submit" class="btn btn-primary px-3 rounded-3 flex-shrink-0">
-                            <i class="bi bi-save me-1"></i> حفظ الرقم
-                        </button>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- بطاقات الإحصائيات والمؤشرات KPI Cards -->
-    <div class="row g-3 mb-4">
-        <div class="col-sm-6 col-xl-3">
-            <div class="stat-card">
-                <div class="stat-icon bg-primary-subtle text-primary">
-                    <i class="bi bi-person-badge-fill"></i>
-                </div>
-                <div>
-                    <span class="text-muted small fw-semibold">الأطباء المعتمدون</span>
-                    <h3 class="fw-bold text-dark mb-0"><%= doctors ? doctors.length : 0 %> أطباء</h3>
-                </div>
-            </div>
-        </div>
-        <div class="col-sm-6 col-xl-3">
-            <div class="stat-card">
-                <div class="stat-icon bg-success-subtle text-success">
-                    <i class="bi bi-clock-history"></i>
-                </div>
-                <div>
-                    <span class="text-muted small fw-semibold">نظام الورديات اليومي</span>
-                    <h5 class="fw-bold text-dark mb-0 fs-6">صباحي (9-12) | مسائي (12-6)</h5>
-                </div>
-            </div>
-        </div>
-        <div class="col-sm-6 col-xl-3">
-            <div class="stat-card">
-                <div class="stat-icon bg-warning-subtle text-warning">
-                    <i class="bi bi-stopwatch-fill"></i>
-                </div>
-                <div>
-                    <span class="text-muted small fw-semibold">فاصل الكشف الإلزامي</span>
-                    <h3 class="fw-bold text-dark mb-0">60 دقيقة</h3>
-                </div>
-            </div>
-        </div>
-        <div class="col-sm-6 col-xl-3">
-            <div class="stat-card">
-                <div class="stat-icon bg-info-subtle text-info">
-                    <i class="bi bi-tags-fill"></i>
-                </div>
-                <div>
-                    <span class="text-muted small fw-semibold">الخدمات والتخصصات</span>
-                    <h3 class="fw-bold text-dark mb-0"><%= services ? services.length : 0 %> باقة</h3>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- تنويه نقل سجل الحجوزات إلى بوابة المريض -->
-    <div class="alert alert-info border-0 rounded-4 shadow-sm p-3 mb-4 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3" style="background: linear-gradient(135deg, #e0f2fe 0%, #ccfbf1 100%);">
-        <div class="d-flex align-items-center gap-3">
-            <div class="rounded-circle bg-white p-2 text-primary shadow-sm flex-shrink-0" style="width: 42px; height: 42px; display: flex; align-items: center; justify-content: center;">
-                <i class="bi bi-shield-check fs-4"></i>
-            </div>
+    <div class="dash-header-card">
+        <div class="d-flex flex-column flex-xl-row justify-content-between align-items-xl-center gap-3">
             <div>
-                <strong class="text-dark d-block">إشعار معماري: تم نقل "سجل الحجوزات" بالكامل وبشكل حصري لبوابة المريض</strong>
-                <span class="text-secondary small">تم تخصيص إدارة ومتابعة وتأكيد حجوزات المرضى حصرياً في بوابة المريض الإلكترونية لضمان الخصوصية وسرعة الخدمة.</span>
+                <h1 class="h3 fw-bold mb-1">
+                    <i class="bi bi-gear-wide-connected text-primary me-2"></i>
+                    لوحة تحكم الطبيب وإدارة العيادة - <span class="text-primary fw-bold">مركز دينتال سيتي</span>
+                </h1>
+                <p class="text-white-50 mb-0 small">
+                    تحكم تنفيذي متكامل في مؤشرات المركز، الأطباء، المواعيد، وجدول العيادة اليومي.
+                </p>
+            </div>
+            <div class="d-flex flex-wrap align-items-center gap-2">
+                <div
+                    class="d-flex align-items-center gap-2 bg-dark bg-opacity-50 px-3 py-1 rounded-pill border border-secondary">
+                    <i class="bi bi-person-check-fill text-success"></i>
+                    <span class="small text-white fw-semibold">
+                        <%= (typeof doctorUser !=='undefined' && doctorUser) ? doctorUser.name : 'د. حازم حجاج' %>
+                    </span>
+                </div>
+                <a href="/Appointments/Book" target="_blank"
+                    class="btn btn-outline-light btn-sm px-3 rounded-pill fw-semibold">
+                    <i class="bi bi-box-arrow-up-right me-1"></i> معاينة صفحة الحجز
+                </a>
+                <button type="button" class="btn btn-primary btn-sm px-3 rounded-pill shadow-sm fw-semibold"
+                    onclick="openAddDoctorModal()">
+                    <i class="bi bi-person-plus-fill me-1"></i> إضافة طبيب جديد
+                </button>
+                <button type="button" class="btn btn-outline-warning btn-sm px-3 rounded-pill text-white fw-semibold"
+                    onclick="openChangePasswordModal()" title="تغيير كلمة المرور">
+                    <i class="bi bi-key-fill me-1"></i> تغيير كلمة المرور
+                </button>
+                <form method="post" action="/Doctor/Dashboard?handler=Logout" class="d-inline m-0">
+                    <button type="submit" class="btn btn-outline-danger btn-sm px-3 rounded-pill text-white fw-semibold"
+                        title="تسجيل الخروج">
+                        <i class="bi bi-box-arrow-right me-1"></i> خروج
+                    </button>
+                </form>
             </div>
         </div>
-        <a href="/Patient/Portal" class="btn btn-primary btn-sm rounded-pill px-4 shadow-sm flex-shrink-0">
-            <i class="bi bi-box-arrow-up-right me-1"></i> فتح بوابة المريض
-        </a>
     </div>
 
-    <!-- التبويبات الرئيسية للوحة التحكم (أطباء، موظفين وصلاحيات، خدمات وأسعار، إعدادات) -->
+    <!-- التبويبات الرئيسية للوحة التحكم (لوحة التحكم التنفيذية، أطباء وتخصصات، موظفين، خدمات، إعدادات) -->
     <div class="panel-card p-0 overflow-hidden">
         <ul class="nav nav-tabs px-3 pt-2 bg-light border-bottom" id="dashboardTabs" role="tablist">
+            <!-- 1. لوحة التحكم العامة (Executive Summary) -->
             <li class="nav-item" role="presentation">
-                <button class="nav-link active" id="doctors-tab" data-bs-toggle="tab" data-bs-target="#doctors-panel" type="button" role="tab">
-                    <i class="bi bi-people me-1"></i> أطباء المركز والمناوبات (<%= doctors ? doctors.length : 0 %>)
+                <button class="nav-link active" id="overview-tab" data-bs-toggle="tab" data-bs-target="#overview-panel"
+                    type="button" role="tab" aria-selected="true">
+                    <i class="bi bi-speedometer2 me-1"></i> لوحة التحكم (Executive Summary)
                 </button>
             </li>
+
+            <!-- 2. بيانات وسجل حجوزات المرضى (Patient Booking Management) -->
             <li class="nav-item" role="presentation">
-                <button class="nav-link" id="staff-tab" data-bs-toggle="tab" data-bs-target="#staff-panel" type="button" role="tab">
+                <button class="nav-link" id="patients-tab" data-bs-toggle="tab" data-bs-target="#patients-panel"
+                    type="button" role="tab" aria-selected="false">
+                    <i class="bi bi-person-lines-fill me-1 text-primary"></i> بيانات حجوزات المرضى (<%= allBookings ? allBookings.length : 0 %>)
+                </button>
+            </li>
+
+            <!-- 3. الأطباء والتخصصات -->
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="doctors-tab" data-bs-toggle="tab" data-bs-target="#doctors-panel"
+                    type="button" role="tab" aria-selected="false">
+                    <i class="bi bi-hospital me-1"></i> الأطباء والتخصصات (<%= doctors ? doctors.length : 0 %>)
+                </button>
+            </li>
+
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="staff-tab" data-bs-toggle="tab" data-bs-target="#staff-panel" type="button"
+                    role="tab" aria-selected="false">
                     <i class="bi bi-shield-lock me-1"></i> الموظفين والصلاحيات
                 </button>
             </li>
             <li class="nav-item" role="presentation">
-                <button class="nav-link" id="services-tab" data-bs-toggle="tab" data-bs-target="#services-panel" type="button" role="tab">
-                    <i class="bi bi-tags me-1"></i> الخدمات والأسعار (<%= services ? services.length : 0 %>)
+                <button class="nav-link" id="services-tab" data-bs-toggle="tab" data-bs-target="#services-panel"
+                    type="button" role="tab" aria-selected="false">
+                    <i class="bi bi-tags me-1"></i> الخدمات (<%= services ? services.length : 0 %>)
                 </button>
             </li>
             <li class="nav-item" role="presentation">
-                <button class="nav-link" id="settings-tab" data-bs-toggle="tab" data-bs-target="#settings-panel" type="button" role="tab">
+                <button class="nav-link" id="settings-tab" data-bs-toggle="tab" data-bs-target="#settings-panel"
+                    type="button" role="tab" aria-selected="false">
                     <i class="bi bi-gear-wide-connected me-1"></i> إعدادات الورديات والمواعيد
                 </button>
             </li>
         </ul>
 
         <div class="tab-content p-4" id="dashboardTabsContent">
-            <!-- 1. تبويب أطباء المركز والمناوبات (Active by default) -->
-            <div class="tab-pane fade show active" id="doctors-panel" role="tabpanel">
-                <div class="d-flex justify-content-between align-items-center mb-4">
-                    <div>
-                        <h5 class="fw-bold text-dark mb-0">قائمة الأطباء والاستشاريين المعتمدين</h5>
-                        <small class="text-muted">إدارة بيانات الأطباء وتحديد جداول الورديات (صباحي/مسائي) بفاصل ساعة إلزامي</small>
+            <!-- 1. تبويب لوحة التحكم العامة والمؤشرات التشغيلية (Executive Summary Panel) -->
+            <div class="tab-pane fade show active" id="overview-panel" role="tabpanel">
+                <!-- Welcome Executive Summary Banner -->
+                <div class="card border-0 rounded-4 shadow-sm p-4 mb-4" style="background: linear-gradient(135deg, #0284c7 0%, #0d9488 100%); color: white;">
+                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+                        <div>
+                            <span class="badge bg-white bg-opacity-25 text-white px-3 py-1 rounded-pill fw-semibold mb-2">
+                                <i class="bi bi-speedometer2 me-1"></i> لوحة القيادة التنفيذية والمؤشرات العامة
+                            </span>
+                            <h3 class="fw-bold mb-1">مركز القيادة التشغيلية - <span class="fw-bold" style="color: #ffffff !important;">مركز دينتال سيتي</span></h3>
+                            <p class="mb-0 text-white-50 small">
+                                متابعة حية لحركة الحجوزات اليومية، طلبات الانتظار العاجلة، والمؤشرات التشغيلية وجاهزية العيادات المعتمدة.
+                            </p>
+                        </div>
+                        <div class="d-flex flex-wrap align-items-center gap-2">
+                            <button type="button" class="btn btn-light text-primary fw-bold px-3 py-2 rounded-pill shadow-sm" onclick="document.getElementById('doctors-tab').click()">
+                                <i class="bi bi-hospital me-1"></i> إدارة الأطباء (<%= doctorsList.length %>)
+                            </button>
+                            <a href="/Patient/Portal" class="btn btn-outline-light px-3 py-2 rounded-pill fw-semibold">
+                                <i class="bi bi-calendar-check me-1"></i> بوابة المريض
+                            </a>
+                        </div>
                     </div>
-                    <button type="button" class="btn btn-primary btn-sm rounded-pill px-3 shadow-sm" onclick="openAddDoctorModal()">
-                        <i class="bi bi-plus-lg me-1"></i> إضافة طبيب
-                    </button>
-                </div>
                 </div>
 
-                <div class="row g-3">
-                    <% if (typeof doctors !== 'undefined' && doctors.length > 0) { %>
-                        <% doctors.forEach(doc => { %>
-                            <div class="col-md-6 col-lg-4" id="doctor-card-<%= doc.id %>">
-                                <div class="card h-100 border rounded-3 p-3 shadow-sm bg-white">
-                                    <div class="d-flex align-items-start gap-3 mb-3">
-                                        <div class="bg-primary-subtle text-primary p-3 rounded-circle d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
-                                            <i class="bi <%= doc.AvatarIcon || 'bi-person-badge-fill' %> fs-3"></i>
-                                        </div>
-                                        <div class="flex-grow-1">
-                                            <h6 class="fw-bold mb-0 text-dark"><%= doc.name %></h6>
-                                            <div class="text-primary small fw-semibold"><%= doc.title %></div>
-                                            <div class="text-muted small"><%= doc.specialty %></div>
-                                        </div>
-                                        <span class="badge <%= doc.IsActive ? 'bg-success' : 'bg-secondary' %>">
-                                            <%= doc.IsActive ? 'نشط' : 'معطل' %>
-                                        </span>
-                                    </div>
-                                    <div class="small text-muted mb-2">
-                                        <div><i class="bi bi-geo-alt text-primary me-1"></i> <%= doc.climicroom || 'العيادة الرئيسية' %></div>
-                                        <div><i class="bi bi-clock text-primary me-1"></i> <%= doc.workinghours %></div>
-                                        <div><i class="bi bi-calendar-week text-primary me-1"></i> <%= doc.WorkingDays %></div>
-                                        <div><i class="bi bi-award text-primary me-1"></i> خبرة <%= doc.experienceyears %> سنوات | تقييم <%= doc.Rating %> <i class="bi bi-star-fill text-warning"></i></div>
-                                    </div>
-                                    <div class="mt-auto pt-3 border-top d-flex gap-2">
-                                        <button type="button" class="btn btn-outline-primary btn-sm rounded-pill flex-grow-1" 
-                                                onclick="openEditDoctorModal(<%= doc.id %>, '<%= doc.name %>', '<%= doc.title %>', '<%= doc.specialty %>', '<%= doc.climicroom || '' %>', '<%= doc.Rating %>', <%= doc.experienceyears %>, <%= doc.IsActive %>, '<%= doc.workinghours %>', '<%= doc.WorkingDays %>')">
-                                            <i class="bi bi-pencil-square me-1"></i> تعديل
-                                        </button>
-                                        <button type="button" class="btn btn-outline-info btn-sm rounded-pill flex-grow-1"
-                                                onclick="openDoctorScheduleModal(<%= doc.id %>, '<%= doc.name %>', '<%= doc.workinghours %>', '<%= doc.WorkingDays %>', <%= doc.OffDays %>, <%= JSON.stringify(doc.AvaliableSlots || []) %>)">
-                                            <i class="bi bi-calendar-range me-1"></i> الجدول
-                                        </button>
-                                        <button type="button" class="btn btn-outline-danger btn-sm rounded-pill" onclick="deleteDoctorAjax(<%= doc.id %>, '<%= doc.name %>')" title="حذف">
-                                            <i class="bi bi-trash"></i>
-                                        </button>
+                <!-- 4 High-Level Operational KPI Cards -->
+                <div class="row g-3 mb-4">
+                    <!-- 1. Total Daily & Overall Appointments -->
+                    <div class="col-sm-6 col-xl-3">
+                        <div class="overview-kpi-card">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="overview-kpi-icon bg-primary-subtle text-primary">
+                                    <i class="bi bi-calendar-check-fill"></i>
+                                </div>
+                                <div class="min-w-0 flex-grow-1">
+                                    <div class="overview-kpi-title">إجمالي الحجوزات الطبية</div>
+                                    <div class="overview-kpi-value"><%= allBookings.length %> حجز</div>
+                                    <div class="overview-kpi-subtext">
+                                        <span class="text-success fw-bold"><i class="bi bi-check-circle me-1"></i><%= confirmedCount %> مؤكد</span>
+                                        <span class="mx-1">•</span>
+                                        <span><%= completedCount %> مكتمل</span>
                                     </div>
                                 </div>
                             </div>
-                        <% }); %>
-                    <% } else { %>
-                        <div class="col-12 text-center py-5">
-                            <div class="rounded-circle bg-light d-inline-flex p-4 text-muted mb-3 border shadow-sm">
-                                <i class="bi bi-people-fill fs-1 text-secondary"></i>
-                            </div>
-                            <h5 class="fw-bold text-dark mb-1">لا يوجد أطباء مسجلون حالياً (0 أطباء)</h5>
-                            <p class="text-muted small mb-3">القائمة تبدأ فارغة تماماً. يمكنك إضافة الأطباء المعتمدين وجداول عملهم بالضغط على الزر أدناه.</p>
-                            <button type="button" class="btn btn-primary rounded-pill px-4 shadow-sm" onclick="openAddDoctorModal()">
-                                <i class="bi bi-person-plus-fill me-1"></i> إضافة أول طبيب للمركز
-                            </button>
                         </div>
-                    <% } %>
+                    </div>
+
+                    <!-- 2. Urgent Pending Requests & Queue -->
+                    <div class="col-sm-6 col-xl-3">
+                        <div class="overview-kpi-card">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="overview-kpi-icon bg-warning-subtle text-warning">
+                                    <i class="bi bi-hourglass-split"></i>
+                                </div>
+                                <div class="min-w-0 flex-grow-1">
+                                    <div class="overview-kpi-title">طلبات الانتظار العاجلة</div>
+                                    <div class="overview-kpi-value text-warning-emphasis"><%= pendingCount %> طلب</div>
+                                    <div class="overview-kpi-subtext">
+                                        <a href="https://wa.me/<%= emergencyPhoneNum.replace(/[^0-9]/g, '') %>" target="_blank" rel="noopener noreferrer" class="text-decoration-none text-success fw-bold">
+                                            <i class="bi bi-whatsapp me-1"></i> متابعة عاجلة
+                                        </a>
+                                        <span class="mx-1">•</span>
+                                        <span><%= emergencyPhoneNum %></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 3. Active Medical Services & Disciplines -->
+                    <div class="col-sm-6 col-xl-3">
+                        <div class="overview-kpi-card">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="overview-kpi-icon bg-success-subtle text-success">
+                                    <i class="bi bi-journal-medical"></i>
+                                </div>
+                                <div class="min-w-0 flex-grow-1">
+                                    <div class="overview-kpi-title">الخدمات الطبية المعتمدة</div>
+                                    <div class="overview-kpi-value text-success"><%= servicesList.length %> خدمات</div>
+                                    <div class="overview-kpi-subtext">
+                                        <span class="text-success fw-bold"><i class="bi bi-shield-check me-1"></i>جاهزية كاملة</span>
+                                        <span class="mx-1">•</span>
+                                        <span>طب وجراحة الأسنان</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 4. System Status & Operational Health -->
+                    <div class="col-sm-6 col-xl-3">
+                        <div class="overview-kpi-card">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="overview-kpi-icon bg-info-subtle text-info">
+                                    <i class="bi bi-activity"></i>
+                                </div>
+                                <div class="min-w-0 flex-grow-1">
+                                    <div class="overview-kpi-title">كفاءة التشغيل والجاهزية</div>
+                                    <div class="overview-kpi-value text-info"><%= activeDoctorsCount %> / <%= doctorsList.length %> أطباء</div>
+                                    <div class="overview-kpi-subtext">
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-0">ورديتان (صباحي/مسائي)</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Operational Details Row -->
+                <div class="row g-3 mb-4">
+                    <!-- Operational Shift Schedule Card -->
+                    <div class="col-lg-6">
+                        <div class="overview-section-box h-100">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h5 class="overview-section-title mb-0">
+                                    <i class="bi bi-clock-history text-primary"></i>
+                                    نظام الورديات وساعات العمل اليومية
+                                </h5>
+                                <button type="button" class="btn btn-outline-primary btn-sm rounded-pill px-3" onclick="openShiftEditModal()">
+                                    <i class="bi bi-pencil-square me-1"></i> تخصيص الورديات
+                                </button>
+                            </div>
+                            <div class="row g-2 mb-3">
+                                <div class="col-6">
+                                    <div class="p-3 rounded-3 border bg-light h-100 shift-summary-mini-card">
+                                        <div class="d-flex align-items-center gap-2 mb-1">
+                                            <span class="badge bg-primary text-white rounded-pill px-2 py-1">الوردية الصباحية</span>
+                                        </div>
+                                        <h6 class="fw-bold text-dark mb-1">09:00 ص - 12:00 م</h6>
+                                        <small class="text-muted">3 ساعات كشف متواصلة</small>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="p-3 rounded-3 border bg-light h-100 shift-summary-mini-card">
+                                        <div class="d-flex align-items-center gap-2 mb-1">
+                                            <span class="badge bg-info text-white rounded-pill px-2 py-1">الوردية المسائية</span>
+                                        </div>
+                                        <h6 class="fw-bold text-dark mb-1">12:00 م - 06:00 م</h6>
+                                        <small class="text-muted">6 ساعات كشف واستشارات</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center justify-content-between p-2 rounded-3 bg-primary-subtle text-primary border border-primary-subtle small fw-semibold">
+                                <span><i class="bi bi-shield-check me-1"></i> فاصل كشف إلزامي 60 دقيقة لكل مريض لمنع التكدس</span>
+                                <span class="badge bg-primary text-white rounded-pill">معتمد بالمركز</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Active Doctor Status Summary Widget -->
+                    <div class="col-lg-6">
+                        <div class="overview-section-box h-100">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h5 class="overview-section-title mb-0">
+                                    <i class="bi bi-person-badge-fill text-primary"></i>
+                                    حالة وجاهزية الكادر الطبي والعيادات
+                                </h5>
+                                <button type="button" class="btn btn-outline-primary btn-sm rounded-pill px-3" onclick="document.getElementById('doctors-tab').click()">
+                                    <i class="bi bi-arrow-left me-1"></i> إدارة الأطباء (<%= doctorsList.length %>)
+                                </button>
+                            </div>
+                            <div class="d-flex flex-column gap-2">
+                                <% if (doctorsList && doctorsList.length > 0) { %>
+                                    <% doctorsList.slice(0, 4).forEach((doc) => { %>
+                                        <div class="d-flex align-items-center justify-content-between p-2 rounded-3 border bg-light bg-opacity-50">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <div class="staff-avatar-circle bg-primary text-white fw-bold" style="width: 36px; height: 36px; font-size: 0.85rem; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                                                    <%= (doc.name || 'ط').charAt(0) %>
+                                                </div>
+                                                <div>
+                                                    <span class="fw-bold text-dark d-block small"><%= doc.name %></span>
+                                                    <small class="text-muted"><%= doc.specialty || 'استشاري طب وجراحة الأسنان' %></small>
+                                                </div>
+                                            </div>
+                                            <div class="text-end">
+                                                <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2 py-1 small">
+                                                    <i class="bi bi-check-circle-fill me-1"></i> متاح بالعيادة
+                                                </span>
+                                                <small class="text-muted d-block mt-1" style="font-size: 0.72rem;">
+                                                    <i class="bi bi-clock me-1"></i> وردية صباحية ومسائية
+                                                </small>
+                                            </div>
+                                        </div>
+                                    <% }); %>
+                                <% } else { %>
+                                    <div class="text-center py-3 text-muted small">لا توجد بيانات أطباء مسجلة حالياً</div>
+                                <% } %>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Urgent Bookings Table Widget -->
+                <div class="overview-section-box mb-4">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+                        <div>
+                            <h5 class="overview-section-title mb-1">
+                                <i class="bi bi-bell-fill text-warning"></i>
+                                أحدث الحجوزات وطلبات الكشف الواردة
+                            </h5>
+                            <span class="text-muted small">قائمة سريعة بآخر 5 حجوزات مسجلة للمتابعة والتأكيد الفوري</span>
+                        </div>
+                        <a href="/Patient/Portal" class="btn btn-primary btn-sm rounded-pill px-3 fw-bold">
+                            <i class="bi bi-table me-1"></i> الانتقال لسجل الحجوزات الكامل
+                        </a>
+                    </div>
+
+                    <div class="table-responsive rounded-3 border">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>الرقم المرجعي</th>
+                                    <th>اسم المريض</th>
+                                    <th>الهاتف</th>
+                                    <th>الطبيب المعالج</th>
+                                    <th>الخدمة المطلوبة</th>
+                                    <th>تاريخ ووقت الكشف</th>
+                                    <th>الحالة</th>
+                                    <th>إجراء فوري</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% if (recentUrgentBookings.length > 0) { %>
+                                    <% recentUrgentBookings.forEach(b => { %>
+                                        <tr>
+                                            <td>
+                                                <span class="badge bg-primary font-monospace fw-bold px-2 py-1"><%= b.reference %></span>
+                                            </td>
+                                            <td class="fw-bold text-dark"><%= b.patient_name %></td>
+                                            <td dir="ltr" class="text-end font-monospace text-muted small"><%= b.patient_phone %></td>
+                                            <td>
+                                                <span class="fw-semibold text-primary"><%= b.doctor_name %></span>
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-light text-dark border"><%= b.selected_service %></span>
+                                            </td>
+                                            <td>
+                                                <span class="small fw-semibold"><%= b.appointment_date %></span>
+                                                <span class="badge bg-light text-muted border ms-1"><%= b.appointment_time %></span>
+                                            </td>
+                                            <td>
+                                                <% if (b.status === 'مؤكد') { %>
+                                                    <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 rounded-pill">🟢 مؤكد</span>
+                                                <% } else if (b.status === 'قيد الانتظار' || b.status === 'pending') { %>
+                                                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1 rounded-pill">🟡 قيد الانتظار</span>
+                                                <% } else if (b.status === 'مكتمل') { %>
+                                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1 rounded-pill">🔵 مكتمل</span>
+                                                <% } else { %>
+                                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1 rounded-pill">🔴 ملغي</span>
+                                                <% } %>
+                                            </td>
+                                            <td>
+                                                <div class="d-flex align-items-center gap-1">
+                                                    <a href="https://wa.me/<%= (b.patient_phone || '').replace(/[^0-9]/g, '') %>?text=<%= encodeURIComponent('مرحباً بك من مركز دينتال سيتي بخصوص حجزك رقم: ' + b.reference) %>" 
+                                                       target="_blank" rel="noopener noreferrer" class="btn btn-outline-success btn-sm rounded-pill px-2 py-1" title="محادثة واتساب سريعة">
+                                                        <i class="bi bi-whatsapp"></i>
+                                                    </a>
+                                                    <a href="/Appointments/Confirmation?reference=<%= encodeURIComponent(b.reference) %>" class="btn btn-outline-primary btn-sm rounded-pill px-2 py-1" title="تفاصيل الحجز">
+                                                        <i class="bi bi-eye"></i>
+                                                    </a>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    <% }); %>
+                                <% } else { %>
+                                    <tr>
+                                        <td colspan="8" class="text-center py-4 text-muted">
+                                            <i class="bi bi-inbox fs-2 d-block mb-1 text-secondary"></i>
+                                            <span>لا توجد حجوزات مسجلة حالياً.</span>
+                                        </td>
+                                    </tr>
+                                <% } %>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Executive Quick Action Navigation Launchers -->
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <div class="p-3 rounded-4 border bg-light d-flex align-items-center justify-content-between overview-action-tile" 
+                             style="cursor: pointer;" onclick="document.getElementById('doctors-tab').click()">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="bg-primary text-white rounded-circle p-2 d-flex align-items-center justify-content-center" style="width: 44px; height: 44px;">
+                                    <i class="bi bi-hospital fs-5"></i>
+                                </div>
+                                <div>
+                                    <h6 class="fw-bold mb-0 text-dark">إدارة الأطباء والتخصصات</h6>
+                                    <small class="text-muted"><%= doctorsList.length %> أطباء معتمدين</small>
+                                </div>
+                            </div>
+                            <i class="bi bi-chevron-left text-muted"></i>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="p-3 rounded-4 border bg-light d-flex align-items-center justify-content-between overview-action-tile" 
+                             style="cursor: pointer;" onclick="document.getElementById('staff-tab').click()">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="bg-success text-white rounded-circle p-2 d-flex align-items-center justify-content-center" style="width: 44px; height: 44px;">
+                                    <i class="bi bi-shield-lock fs-5"></i>
+                                </div>
+                                <div>
+                                    <h6 class="fw-bold mb-0 text-dark">الموظفين وصلاحيات الكادر</h6>
+                                    <small class="text-muted">المدير الطبي والاستقبال</small>
+                                </div>
+                            </div>
+                            <i class="bi bi-chevron-left text-muted"></i>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="p-3 rounded-4 border bg-light d-flex align-items-center justify-content-between overview-action-tile" 
+                             style="cursor: pointer;" onclick="document.getElementById('settings-tab').click()">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="bg-warning text-white rounded-circle p-2 d-flex align-items-center justify-content-center" style="width: 44px; height: 44px;">
+                                    <i class="bi bi-gear-wide-connected fs-5"></i>
+                                </div>
+                                <div>
+                                    <h6 class="fw-bold mb-0 text-dark">إعدادات الورديات والعيادة</h6>
+                                    <small class="text-muted">تخصيص الفترات وساعات العمل</small>
+                                </div>
+                            </div>
+                            <i class="bi bi-chevron-left text-muted"></i>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- 2. تبويب الموظفين والصلاحيات (Staff & Roles Management) -->
+            <!-- 2. تبويب بيانات وسجل حجوزات المرضى (Patient Booking Management Module) -->
+            <div class="tab-pane fade" id="patients-panel" role="tabpanel" aria-labelledby="patients-tab">
+                <!-- Header with Action -->
+                <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+                    <div>
+                        <h4 class="fw-bold text-dark mb-1 d-flex align-items-center gap-2">
+                            <i class="bi bi-person-lines-fill text-primary"></i> بيانات وسجل حجوزات المرضى (Patient Booking Management)
+                        </h4>
+                        <p class="text-muted small mb-0">إدارة مركزية شاملة لجميع كشوفات وحجوزات المرضى، مع إمكانية الفرز والبحث الفوري بالاسم أو الهاتف أو الطبيب</p>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <a href="/Appointments/Book" target="_blank" class="btn btn-primary rounded-pill px-4 shadow-sm fw-semibold">
+                            <i class="bi bi-calendar2-plus me-1"></i> حجز كشف جديد لمريض
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Operational Metrics Ribbon -->
+                <div class="row g-3 mb-4">
+                    <div class="col-6 col-lg-3">
+                        <div class="p-3 rounded-4 border bg-light h-100 overview-kpi-card">
+                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                <span class="small fw-semibold text-muted">إجمالي المرضى والحجوزات</span>
+                                <div class="bg-primary-subtle text-primary p-2 rounded-circle"><i class="bi bi-people-fill"></i></div>
+                            </div>
+                            <h3 class="fw-bold mb-0 text-dark"><%= allBookings ? allBookings.length : 0 %></h3>
+                            <small class="text-muted">سجل الحجوزات الكامل</small>
+                        </div>
+                    </div>
+                    <div class="col-6 col-lg-3">
+                        <div class="p-3 rounded-4 border bg-light h-100 overview-kpi-card">
+                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                <span class="small fw-semibold text-muted">الحجوزات المؤكدة</span>
+                                <div class="bg-success-subtle text-success p-2 rounded-circle"><i class="bi bi-calendar-check-fill"></i></div>
+                            </div>
+                            <h3 class="fw-bold mb-0 text-success"><%= confirmedCount %></h3>
+                            <small class="text-muted">حضور مؤكد بالعيادة</small>
+                        </div>
+                    </div>
+                    <div class="col-6 col-lg-3">
+                        <div class="p-3 rounded-4 border bg-light h-100 overview-kpi-card">
+                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                <span class="small fw-semibold text-muted">طلبات قيد الانتظار</span>
+                                <div class="bg-warning-subtle text-warning-emphasis p-2 rounded-circle"><i class="bi bi-hourglass-split"></i></div>
+                            </div>
+                            <h3 class="fw-bold mb-0 text-warning"><%= pendingCount %></h3>
+                            <small class="text-muted">تتطلب مراجعة الاستقبال</small>
+                        </div>
+                    </div>
+                    <div class="col-6 col-lg-3">
+                        <div class="p-3 rounded-4 border bg-light h-100 overview-kpi-card">
+                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                <span class="small fw-semibold text-muted">جلسات كشف مكتملة</span>
+                                <div class="bg-info-subtle text-info p-2 rounded-circle"><i class="bi bi-check-circle-fill"></i></div>
+                            </div>
+                            <h3 class="fw-bold mb-0 text-info"><%= completedCount %></h3>
+                            <small class="text-muted">تم الانتهاء من فحصها</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Search & Filter Controls -->
+                <div class="card border rounded-4 shadow-sm p-3 mb-4 patient-search-card">
+                    <div class="row g-2 align-items-center">
+                        <div class="col-lg-5 col-md-6">
+                            <div class="position-relative">
+                                <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-primary fs-5"></i>
+                                <input type="text" id="patientBookingSearchInput" class="form-control form-control-lg rounded-pill ps-5 pe-5 border"
+                                    placeholder="ابحث باسم المريض، رقم الهاتف، الطبيب المعالج، كود الحجز..."
+                                    onkeyup="filterPatientBookings()" oninput="filterPatientBookings()" autocomplete="off">
+                                <button type="button" class="btn btn-link position-absolute top-50 end-0 translate-middle-y me-2 text-muted d-none" 
+                                    id="clearPatientSearchBtn" onclick="clearPatientSearch()" title="مسح حقل البحث">
+                                    <i class="bi bi-x-circle-fill fs-5"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-sm-6 col-lg-3 col-md-3">
+                            <select id="patientBookingStatusFilter" class="form-select form-select-lg rounded-pill border" onchange="filterPatientBookings()">
+                                <option value="">جميع الحالات (All Statuses)</option>
+                                <option value="مؤكد">مؤكد (Confirmed)</option>
+                                <option value="قيد الانتظار">قيد الانتظار (Pending)</option>
+                                <option value="مكتمل">مكتمل (Completed)</option>
+                                <option value="ملغي">ملغي (Cancelled)</option>
+                            </select>
+                        </div>
+                        <div class="col-sm-6 col-lg-4 col-md-3">
+                            <div class="d-flex align-items-center justify-content-between gap-2 p-2 bg-light rounded-pill border px-3">
+                                <span class="small text-muted text-nowrap"><i class="bi bi-funnel-fill text-primary me-1"></i>نتائج البحث:</span>
+                                <span class="badge bg-primary text-white rounded-pill px-3 py-1" id="patientFilterResultsBadge">
+                                    عرض <%= allBookings ? allBookings.length : 0 %> من <%= allBookings ? allBookings.length : 0 %>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Patients List Table -->
+                <div class="card border rounded-4 shadow-sm overflow-hidden mb-4">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0" id="patientsBookingTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="ps-3" style="width: 140px;">الرمز المرجعي</th>
+                                    <th>اسم المريض وبيانات الاتصال</th>
+                                    <th>الطبيب المعالج</th>
+                                    <th>الخدمة المطلوبة</th>
+                                    <th>تاريخ وتوقيت الكشف</th>
+                                    <th>الوردية</th>
+                                    <th>حالة الحجز</th>
+                                    <th class="text-center pe-3" style="width: 130px;">الإجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody id="patientsBookingTableBody">
+                                <% if (allBookings && allBookings.length > 0) { %>
+                                    <% allBookings.forEach((b) => { %>
+                                        <% 
+                                            const pName = b.patient_name || 'مريض غير مسجل';
+                                            const pInitial = pName.trim().charAt(0) || 'م';
+                                            const pPhone = b.patient_phone || '';
+                                            const pCleanPhone = pPhone.replace(/[^0-9]/g, '');
+                                            const bStatus = (b.status || 'قيد الانتظار').trim();
+                                            let badgeCls = 'bg-warning-subtle text-warning-emphasis border border-warning-subtle';
+                                            if (bStatus === 'مؤكد') badgeCls = 'bg-success-subtle text-success border border-success-subtle';
+                                            else if (bStatus === 'مكتمل') badgeCls = 'bg-info-subtle text-info border border-info-subtle';
+                                            else if (bStatus === 'ملغي') badgeCls = 'bg-danger-subtle text-danger border border-danger-subtle';
+                                        %>
+                                        <tr class="patient-booking-row" 
+                                            data-patient-name="<%- pName.toLowerCase() %>"
+                                            data-patient-phone="<%- pCleanPhone %>"
+                                            data-booking-ref="<%- (b.reference || '').toLowerCase() %>"
+                                            data-doctor-name="<%- (b.doctor_name || '').toLowerCase() %>"
+                                            data-service-name="<%- (b.selected_service || '').toLowerCase() %>"
+                                            data-status="<%- bStatus %>">
+                                            
+                                            <!-- Reference Code -->
+                                            <td class="ps-3">
+                                                <div class="d-flex align-items-center gap-1">
+                                                    <span class="font-monospace fw-bold text-primary small"><%= b.reference %></span>
+                                                    <button type="button" class="btn btn-sm btn-link p-0 text-muted" 
+                                                            onclick="navigator.clipboard.writeText('<%= b.reference %>'); showToastNotification('تم نسخ الرمز المرجعي للحجز');" 
+                                                            title="نسخ كود الحجز">
+                                                        <i class="bi bi-copy" style="font-size: 0.8rem;"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+
+                                            <!-- Patient Info -->
+                                            <td>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <div class="patient-avatar-circle flex-shrink-0">
+                                                        <%= pInitial %>
+                                                    </div>
+                                                    <div class="min-w-0">
+                                                        <div class="fw-bold text-dark text-truncate patient-name-text" title="<%= pName %>">
+                                                            <%= pName %>
+                                                        </div>
+                                                        <div class="small d-flex align-items-center gap-2 text-muted">
+                                                            <% if (pPhone) { %>
+                                                                <span dir="ltr"><i class="bi bi-telephone text-primary me-1"></i><%= pPhone %></span>
+                                                                <a href="https://wa.me/<%= pCleanPhone %>?text=<%= encodeURIComponent('مرحباً بك من مركز دينتال سيتي بخصوص حجزك رقم: ' + b.reference) %>" 
+                                                                   target="_blank" rel="noopener noreferrer" 
+                                                                   class="text-success text-decoration-none small fw-semibold" title="محادثة واتساب فورية">
+                                                                    <i class="bi bi-whatsapp"></i>
+                                                                </a>
+                                                            <% } else { %>
+                                                                <span>-</span>
+                                                            <% } %>
+                                                            <% if (b.gender) { %>
+                                                                <span class="badge bg-secondary-subtle text-secondary" style="font-size: 0.65rem;"><%= b.gender %></span>
+                                                            <% } %>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </td>
+
+                                            <!-- Doctor -->
+                                            <td>
+                                                <div class="fw-semibold text-primary"><%= b.doctor_name || 'طبيب عام' %></div>
+                                                <small class="text-muted d-block"><%= b.doctor_specialty || 'طب وجراحة الأسنان' %></small>
+                                            </td>
+
+                                            <!-- Service -->
+                                            <td>
+                                                <span class="badge bg-light text-dark border px-2 py-1"><%= b.selected_service || 'كشف واستشارة' %></span>
+                                            </td>
+
+                                            <!-- Date & Time -->
+                                            <td>
+                                                <div class="fw-bold text-dark small"><i class="bi bi-calendar3 me-1 text-primary"></i><%= b.appointment_date %></div>
+                                                <div class="small text-muted"><i class="bi bi-clock me-1 text-primary"></i><%= b.appointment_time %></div>
+                                            </td>
+
+                                            <!-- Shift -->
+                                            <td>
+                                                <% const isEve = (b.shift_type === 'evening' || (b.appointment_time && (b.appointment_time.includes('م') || b.appointment_time.includes('PM')))); %>
+                                                <span class="badge <%= isEve ? 'bg-primary-subtle text-primary border border-primary-subtle' : 'bg-warning-subtle text-warning-emphasis border border-warning-subtle' %> rounded-pill">
+                                                    <i class="bi <%= isEve ? 'bi-moon-stars-fill' : 'bi-sun-fill' %> me-1"></i><%= isEve ? 'مسائية' : 'صباحية' %>
+                                                </span>
+                                            </td>
+
+                                            <!-- Status -->
+                                            <td>
+                                                <select class="form-select form-select-sm rounded-pill status-change-select <%= badgeCls %>" 
+                                                        style="width: 120px; font-weight: 700;"
+                                                        data-ref="<%= b.reference %>"
+                                                        onchange="updatePatientBookingStatusAjax(this, '<%= b.reference %>')">
+                                                    <option value="قيد الانتظار" <%= bStatus === 'قيد الانتظار' ? 'selected' : '' %>>قيد الانتظار</option>
+                                                    <option value="مؤكد" <%= bStatus === 'مؤكد' ? 'selected' : '' %>>مؤكد</option>
+                                                    <option value="مكتمل" <%= bStatus === 'مكتمل' ? 'selected' : '' %>>مكتمل</option>
+                                                    <option value="ملغي" <%= bStatus === 'ملغي' ? 'selected' : '' %>>ملغي</option>
+                                                </select>
+                                            </td>
+
+                                            <!-- Action Buttons -->
+                                            <td class="text-center pe-3">
+                                                <button type="button" class="btn btn-outline-primary btn-sm rounded-pill px-3 view-patient-detail-btn"
+                                                    data-ref="<%- b.reference %>"
+                                                    data-name="<%- (pName || '').replace(/"/g, '&quot;') %>"
+                                                    data-phone="<%- pPhone %>"
+                                                    data-gender="<%- b.gender || '-' %>"
+                                                    data-birth="<%- b.birth_date || '-' %>"
+                                                    data-doctor="<%- (b.doctor_name || '-').replace(/"/g, '&quot;') %>"
+                                                    data-specialty="<%- (b.doctor_specialty || '-').replace(/"/g, '&quot;') %>"
+                                                    data-service="<%- (b.selected_service || '-').replace(/"/g, '&quot;') %>"
+                                                    data-date="<%- b.appointment_date %>"
+                                                    data-time="<%- b.appointment_time %>"
+                                                    data-shift="<%- isEve ? 'مسائية' : 'صباحية' %>"
+                                                    data-status="<%- bStatus %>"
+                                                    data-notes="<%- (b.patient_notes || 'لا توجد ملاحظات إضافية').replace(/"/g, '&quot;') %>"
+                                                    onclick="openPatientDetailsModal(this)" title="عرض التفاصيل الكاملة للحجز">
+                                                    <i class="bi bi-eye-fill me-1"></i> التفاصيل
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    <% }); %>
+                                <% } else { %>
+                                    <tr>
+                                        <td colspan="8" class="text-center py-5">
+                                            <div class="rounded-circle bg-light d-inline-flex p-4 text-muted mb-3 border shadow-sm">
+                                                <i class="bi bi-calendar-x fs-1 text-secondary"></i>
+                                            </div>
+                                            <h6 class="fw-bold text-dark mb-1">لا توجد حجوزات مسجلة حالياً في قاعدة البيانات</h6>
+                                            <p class="text-muted small">يمكنك تسجيل حجز جديد لمريض عبر الضغط على الزر أعلاه</p>
+                                        </td>
+                                    </tr>
+                                <% } %>
+                                <!-- Empty Filter Row -->
+                                <tr id="noPatientsFoundRow" class="d-none">
+                                    <td colspan="8" class="text-center py-5">
+                                        <div class="rounded-circle bg-light d-inline-flex p-4 text-muted mb-3 border shadow-sm">
+                                            <i class="bi bi-search fs-1 text-primary"></i>
+                                        </div>
+                                        <h6 class="fw-bold text-dark mb-1">لم يتم العثور على أي نتائج مطابقة للبحث</h6>
+                                        <p class="text-muted small mb-3">يرجى التأكد من كتابة اسم المريض أو رقم الهاتف بشكل صحيح</p>
+                                        <button type="button" class="btn btn-outline-primary btn-sm rounded-pill px-4" onclick="clearPatientSearch()">
+                                            <i class="bi bi-arrow-clockwise me-1"></i> إعادة ضبط البحث
+                                        </button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. تبويب أطباء المركز والتخصصات (Doctors & Specialties Module) -->
+            <div class="tab-pane fade" id="doctors-panel" role="tabpanel">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <div>
+                        <h5 class="fw-bold text-dark mb-0">قائمة الأطباء والاستشاريين المعتمدين</h5>
+                        <small class="text-muted">إدارة بيانات الأطباء وتحديد جداول الورديات (صباحي/مسائي) بفاصل ساعة
+                            إلزامي</small>
+                    </div>
+                    <button type="button" class="btn btn-primary btn-sm rounded-pill px-3 shadow-sm fw-semibold"
+                        onclick="openAddDoctorModal()">
+                        <i class="bi bi-plus-lg me-1"></i> إضافة طبيب جديد
+                    </button>
+                </div>
+
+                <div class="row g-3">
+                    <% if (typeof doctors !=='undefined' && doctors.length> 0) { %>
+                        <% doctors.forEach(doc=> { %>
+                            <div class="col-md-6 col-lg-4" id="doctor-card-<%= doc.id %>">
+                                <div
+                                    class="card h-100 border rounded-4 p-3 shadow-sm doctor-card-item d-flex flex-column">
+                                    <div class="doctor-card-header d-flex align-items-start justify-content-between gap-2 mb-3">
+                                        <div class="d-flex align-items-center gap-3 min-w-0 flex-grow-1">
+                                            <% const docInitial = (doc.name && doc.name.trim().length > 0) ? (doc.name.replace(/^د\.?\s*/, '').trim().charAt(0) || 'د') : 'د'; %>
+                                            <div class="doctor-avatar-wrapper position-relative flex-shrink-0">
+                                                <div class="doctor-avatar-circle">
+                                                    <%= docInitial %>
+                                                </div>
+                                                <span class="doctor-status-dot <%= doc.IsActive ? 'status-active' : 'status-inactive' %>" title="<%= doc.IsActive ? 'طبيب نشط' : 'طبيب معطل' %>"></span>
+                                            </div>
+                                            <div class="flex-grow-1 min-w-0">
+                                                <h6 class="fw-bold mb-0 text-primary doc-name-header text-truncate"
+                                                    style="color: var(--primary-blue, #0284c7) !important;"
+                                                    title="<%= doc.name %>">
+                                                    <%= doc.name %>
+                                                </h6>
+                                                <div class="text-primary small fw-semibold text-truncate d-flex align-items-center gap-1">
+                                                    <span><%= doc.title %></span>
+                                                    <i class="bi bi-patch-check-fill text-primary" style="font-size: 0.82rem;" title="كادر طبي معتمد"></i>
+                                                </div>
+                                                <div class="text-muted small text-truncate">
+                                                    <%= doc.specialty %>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <span class="badge doctor-card-status-badge <%= doc.IsActive ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-secondary-subtle text-secondary border border-secondary-subtle' %> rounded-pill px-2 py-1 flex-shrink-0">
+                                            <i class="bi <%= doc.IsActive ? 'bi-check-circle-fill' : 'bi-dash-circle' %> me-1"></i><%= doc.IsActive ? 'نشط' : 'معطل' %>
+                                        </span>
+                                    </div>
+                                    <div class="doctor-schedule-box small mb-3 p-2 rounded-3 border"
+                                        style="cursor: pointer; transition: all 0.2s ease;"
+                                        title="انقر لفتح وتعديل جدول مواعيد وورديات الطبيب"
+                                        data-id="<%= doc.id %>"
+                                        data-name="<%- (doc.name || '').replace(/"/g, '&quot;') %>"
+                                        data-hours="<%- (doc.workinghours || '').replace(/"/g, '&quot;') %>"
+                                        data-days="<%- (doc.WorkingDays || '').replace(/"/g, '&quot;') %>"
+                                        data-offday="<%= doc.OffDays || 5 %>"
+                                        data-slots="<%- encodeURIComponent(JSON.stringify(doc.AvaliableSlots || [])) %>"
+                                        onclick="openDoctorScheduleModalFromButton(this)">
+                                        <div class="d-flex justify-content-between align-items-center mb-1">
+                                            <span class="fw-semibold text-primary small"><i class="bi bi-clock-history me-1"></i> جدول المواعيد والورديات:</span>
+                                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle" style="font-size: 0.68rem;"><i class="bi bi-pencil-fill me-1"></i>تعديل الجدول</span>
+                                        </div>
+                                        <div class="text-truncate fw-medium text-dark">
+                                            <i class="bi bi-clock text-primary me-1"></i><%= doc.workinghours || '09:00 ص - 12:00 م | 12:00 م - 06:00 م' %>
+                                        </div>
+                                        <div class="text-truncate small text-muted">
+                                            <i class="bi bi-calendar-week text-warning me-1"></i><%= doc.WorkingDays || 'السبت - الخميس (الجمعة إجازة)' %>
+                                        </div>
+                                        <div class="d-flex justify-content-between text-muted small mt-1 pt-1 border-top" style="font-size: 0.75rem;">
+                                            <span><i class="bi bi-geo-alt text-primary me-1"></i><%= doc.climicroom || 'العيادة الرئيسية' %></span>
+                                            <span><i class="bi bi-award text-primary me-1"></i><%= doc.experienceyears %> سنوات | <%= doc.Rating %> <i class="bi bi-star-fill text-warning"></i></span>
+                                        </div>
+                                    </div>
+                                    <div class="mt-auto pt-2 border-top doctor-card-actions">
+                                        <div class="d-flex gap-2 mb-2">
+                                            <button type="button"
+                                                class="btn btn-outline-primary btn-sm rounded-pill flex-fill text-nowrap py-1 px-2 edit-doctor-action-btn"
+                                                data-id="<%= doc.id %>"
+                                                data-name="<%- (doc.name || '').replace(/"/g, '&quot;') %>"
+                                                data-title="<%- (doc.title || '').replace(/"/g, '&quot;') %>"
+                                                data-specialty="<%- (doc.specialty || '').replace(/"/g, '&quot;') %>"
+                                                data-room="<%- (doc.climicroom || '').replace(/"/g, '&quot;') %>"
+                                                data-rating="<%= doc.Rating || 5.0 %>"
+                                                data-exp="<%= doc.experienceyears || 5 %>"
+                                                data-active="<%= doc.IsActive ? 'true' : 'false' %>"
+                                                data-hours="<%- (doc.workinghours || '').replace(/"/g, '&quot;') %>"
+                                                data-days="<%- (doc.WorkingDays || '').replace(/"/g, '&quot;') %>"
+                                                onclick="openEditDoctorModalFromButton(this)"
+                                                title="تعديل بيانات الطبيب">
+                                                <i class="bi bi-pencil-square me-1"></i> تعديل بيانات
+                                            </button>
+                                            <button type="button"
+                                                class="btn btn-outline-info btn-sm rounded-pill flex-fill text-nowrap py-1 px-2 schedule-doctor-action-btn"
+                                                data-id="<%= doc.id %>"
+                                                data-name="<%- (doc.name || '').replace(/"/g, '&quot;') %>"
+                                                data-hours="<%- (doc.workinghours || '').replace(/"/g, '&quot;') %>"
+                                                data-days="<%- (doc.WorkingDays || '').replace(/"/g, '&quot;') %>"
+                                                data-offday="<%= doc.OffDays || 5 %>"
+                                                data-slots="<%- encodeURIComponent(JSON.stringify(doc.AvaliableSlots || [])) %>"
+                                                onclick="openDoctorScheduleModalFromButton(this)"
+                                                title="فتح وتعديل جدول مواعيد وورديات الطبيب">
+                                                <i class="bi bi-calendar-range me-1"></i> جدول المواعيد
+                                            </button>
+                                        </div>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <button type="button"
+                                                class="btn btn-outline-warning btn-sm rounded-pill flex-grow-1 text-nowrap py-1 px-2 permissions-doctor-action-btn"
+                                                data-id="<%= doc.id %>"
+                                                data-name="<%- (doc.name || '').replace(/"/g, '&quot;') %>"
+                                                data-title="<%- (doc.title || '').replace(/"/g, '&quot;') %>"
+                                                data-type="doctor"
+                                                data-role="Doctor"
+                                                data-active="<%= doc.IsActive ? 'true' : 'false' %>"
+                                                onclick="openDoctorPermissionsModal(this)"
+                                                title="تعديل صلاحيات ودور الطبيب">
+                                                <i class="bi bi-shield-lock me-1"></i> الصلاحيات والدور
+                                            </button>
+                                            <button type="button"
+                                                class="btn btn-outline-danger btn-sm rounded-pill px-3 py-1 flex-shrink-0"
+                                                data-doc-name="<%- (doc.name || '').replace(/"/g, '&quot;') %>" onclick="deleteDoctorAjax(<%= doc.id %>, this.getAttribute('data-doc-name'))" title="حذف الطبيب">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <% }); %>
+                                <% } else { %>
+                                    <div class="col-12 text-center py-5">
+                                        <div
+                                            class="rounded-circle bg-light d-inline-flex p-4 text-muted mb-3 border shadow-sm">
+                                            <i class="bi bi-people-fill fs-1 text-secondary"></i>
+                                        </div>
+                                        <h5 class="fw-bold text-dark mb-1">لا يوجد أطباء مسجلون حالياً (0 أطباء)</h5>
+                                        <p class="text-muted small mb-3">القائمة تبدأ فارغة تماماً. يمكنك إضافة الأطباء
+                                            المعتمدين وجداول عملهم بالضغط على الزر أدناه.</p>
+                                        <button type="button" class="btn btn-primary rounded-pill px-4 shadow-sm"
+                                            onclick="openAddDoctorModal()">
+                                            <i class="bi bi-person-plus-fill me-1"></i> إضافة أول طبيب للمركز
+                                        </button>
+                                    </div>
+                                    <% } %>
+                </div>
+            </div>
+
+
+
+            <!-- 3. تبويب الموظفين والصلاحيات (Staff & Roles Management - Supabase Realtime Persistence) -->
             <div class="tab-pane fade" id="staff-panel" role="tabpanel">
+                <%
+                    const staffList = (typeof staff !== 'undefined' && staff && Array.isArray(staff)) ? staff : [];
+                    const totalStaffCount = staffList.length;
+                    const doctorsStaffCount = staffList.filter(s => (s.role || '').toLowerCase().includes('doc') || (s.role || '').toLowerCase().includes('طبيب') || (s.role || '').toLowerCase().includes('admin')).length;
+                    const receptionStaffCount = staffList.filter(s => (s.role || '').toLowerCase().includes('recept') || (s.role || '').toLowerCase().includes('استقبال')).length;
+                    const assistantStaffCount = staffList.filter(s => (s.role || '').toLowerCase().includes('assist') || (s.role || '').toLowerCase().includes('مساعد') || (s.role || '').toLowerCase().includes('تمريض')).length;
+
+                    function getStaffRoleDetails(role) {
+                        const r = (role || '').toLowerCase();
+                        if (r.includes('admin') || r.includes('مدير')) {
+                            return { label: 'المدير الطبي (Admin)', badgeClass: 'bg-primary text-white', icon: 'bi-shield-check' };
+                        } else if (r.includes('doc') || r.includes('طبيب')) {
+                            return { label: 'طبيب أسنان (Doctor)', badgeClass: 'bg-info-subtle text-info-emphasis border border-info-subtle', icon: 'bi-person-badge' };
+                        } else if (r.includes('recept') || r.includes('استقبال')) {
+                            return { label: 'موظف استقبال (Receptionist)', badgeClass: 'bg-secondary-subtle text-secondary border border-secondary-subtle', icon: 'bi-headset' };
+                        } else {
+                            return { label: 'مساعد طبيب (Assistant)', badgeClass: 'bg-success-subtle text-success border border-success-subtle', icon: 'bi-heart-pulse' };
+                        }
+                    }
+                %>
                 <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
                     <div>
                         <h5 class="fw-bold text-dark mb-0">إدارة طاقم المركز وتوزيع الصلاحيات (Staff & Roles)</h5>
-                        <small class="text-muted">التحكم في حسابات الكادر الطبي، الاستقبال، المساعدين، ومنح الصلاحيات الأمنية</small>
+                        <small class="text-muted">التحكم المباشر في حسابات الكادر الطبي، الاستقبال، والمساعدين مع مزامنة لحظية عبر قاعدة بيانات Supabase</small>
                     </div>
-                    <button type="button" class="btn btn-success btn-sm rounded-pill px-3 shadow-sm" onclick="openAddStaffModal()">
+                    <button type="button" class="btn btn-success btn-sm rounded-pill px-3 shadow-sm fw-semibold"
+                        onclick="openAddStaffModal()">
                         <i class="bi bi-person-plus-fill me-1"></i> إضافة موظف / كادر جديد
                     </button>
                 </div>
@@ -4518,143 +6173,130 @@ export class WhatsAppNotificationService {
                 <div class="row g-3 mb-4">
                     <div class="col-sm-6 col-md-3">
                         <div class="p-3 border rounded-3 bg-light text-center">
-                            <span class="text-muted small d-block">إجمالي الكادر</span>
-                            <h4 class="fw-bold text-dark mb-0">8 موظفين</h4>
+                            <span class="text-muted small d-block">إجمالي الكادر (قاعدة البيانات)</span>
+                            <h4 class="fw-bold text-dark mb-0" id="totalStaffCountText"><%= totalStaffCount %> موظف</h4>
                         </div>
                     </div>
                     <div class="col-sm-6 col-md-3">
                         <div class="p-3 border rounded-3 bg-light text-center">
-                            <span class="text-muted small d-block">الكادر الطبي</span>
-                            <h4 class="fw-bold text-primary mb-0"><%= doctors ? doctors.length : 0 %> أطباء</h4>
+                            <span class="text-muted small d-block">الكادر الطبي المعتمد</span>
+                            <h4 class="fw-bold text-primary mb-0">
+                                <%= (doctors && doctors.length > 0) ? doctors.length : doctorsStaffCount %> أطباء
+                            </h4>
                         </div>
                     </div>
                     <div class="col-sm-6 col-md-3">
                         <div class="p-3 border rounded-3 bg-light text-center">
-                            <span class="text-muted small d-block">موظفو الاستقبال</span>
-                            <h4 class="fw-bold text-info mb-0">2 استقبال</h4>
+                            <span class="text-muted small d-block">فريق الاستقبال والتنسيق</span>
+                            <h4 class="fw-bold text-info mb-0"><%= receptionStaffCount %> استقبال</h4>
                         </div>
                     </div>
                     <div class="col-sm-6 col-md-3">
                         <div class="p-3 border rounded-3 bg-light text-center">
                             <span class="text-muted small d-block">التمريض والمعاونة</span>
-                            <h4 class="fw-bold text-success mb-0">2 مساعدين</h4>
+                            <h4 class="fw-bold text-success mb-0"><%= assistantStaffCount %> مساعدين</h4>
                         </div>
                     </div>
                 </div>
 
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
+                <div class="table-responsive border rounded-3 bg-white shadow-sm">
+                    <table class="table table-hover align-middle mb-0" id="staffManagementTable">
                         <thead class="table-light">
                             <tr>
                                 <th>الموظف / العضو</th>
                                 <th>الدور الوظيفي</th>
-                                <th>اسم المستخدم / البريد</th>
-                                <th>مستوى الصلاحيات</th>
-                                <th>العيادة المخصصة</th>
+                                <th>رقم الهاتف / التواصل</th>
+                                <th>تاريخ التسجيل</th>
                                 <th>الحالة</th>
-                                <th>إجراءات</th>
+                                <th class="text-center" style="min-width: 175px;">إجراءات العمليات (Actions)</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            <tr>
-                                <td>
-                                    <div class="d-flex align-items-center gap-2">
-                                        <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width: 38px; height: 38px;">د</div>
-                                        <div>
-                                            <span class="fw-bold text-dark d-block">د. حازم حجاج</span>
-                                            <small class="text-muted">استشاري جراحة وزراعة الأسنان</small>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td><span class="badge bg-primary">المدير الطبي (Admin)</span></td>
-                                <td class="font-monospace small">admin@dentalcity.clinic</td>
-                                <td><span class="badge bg-danger-subtle text-danger border border-danger-subtle">كامل الصلاحيات (Super Admin)</span></td>
-                                <td>العيادة الاستشارية (100)</td>
-                                <td><span class="badge bg-success">نشط</span></td>
-                                <td>
-                                    <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-2" onclick="openChangePasswordModal()" title="تغيير كلمة المرور">
-                                        <i class="bi bi-key"></i>
-                                    </button>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>
-                                    <div class="d-flex align-items-center gap-2">
-                                        <div class="bg-info text-white rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width: 38px; height: 38px;">د</div>
-                                        <div>
-                                            <span class="fw-bold text-dark d-block">د. سارة إبراهيم</span>
-                                            <small class="text-muted">أخصائية علاج الجذور والأسنان</small>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td><span class="badge bg-info-subtle text-info-emphasis">طبيب معالج (Doctor)</span></td>
-                                <td class="font-monospace small">dr_sara</td>
-                                <td><span class="badge bg-primary-subtle text-primary border border-primary-subtle">الكشوفات والروشتات والملفات</span></td>
-                                <td>عيادة الأسنان (102)</td>
-                                <td><span class="badge bg-success">نشط</span></td>
-                                <td>
-                                    <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-2" onclick="alert('تعديل صلاحيات الطبيب')" title="تعديل">
-                                        <i class="bi bi-pencil-square"></i>
-                                    </button>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>
-                                    <div class="d-flex align-items-center gap-2">
-                                        <div class="bg-secondary text-white rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width: 38px; height: 38px;">م</div>
-                                        <div>
-                                            <span class="fw-bold text-dark d-block">أ/ مروة محمود</span>
-                                            <small class="text-muted">موظفة استقبال وتنسيق مواعيد</small>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td><span class="badge bg-secondary">استقبال (Receptionist)</span></td>
-                                <td class="font-monospace small">reception</td>
-                                <td><span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">إدارة وتأكيد الحجوزات والخزينة</span></td>
-                                <td>مكتب الاستقبال الرئيسي</td>
-                                <td><span class="badge bg-success">نشط</span></td>
-                                <td>
-                                    <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-2" onclick="alert('تعديل صلاحيات الاستقبال')" title="تعديل">
-                                        <i class="bi bi-pencil-square"></i>
-                                    </button>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>
-                                    <div class="d-flex align-items-center gap-2">
-                                        <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width: 38px; height: 38px;">ن</div>
-                                        <div>
-                                            <span class="fw-bold text-dark d-block">م/ نيرة فؤاد</span>
-                                            <small class="text-muted">مساعدة طبيب أسنان وتعقيم</small>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td><span class="badge bg-success-subtle text-success">مساعد طبيب (Assistant)</span></td>
-                                <td class="font-monospace small">assistant_nayera</td>
-                                <td><span class="badge bg-light text-dark border">المخزن، التعقيم، ومتابعة المعمل</span></td>
-                                <td>غرفة التعقيم والمخزن</td>
-                                <td><span class="badge bg-success">نشط</span></td>
-                                <td>
-                                    <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-2" onclick="alert('تعديل صلاحيات المساعد')" title="تعديل">
-                                        <i class="bi bi-pencil-square"></i>
-                                    </button>
-                                </td>
-                            </tr>
+                        <tbody id="staffTableBody">
+                            <% if (staffList.length > 0) { %>
+                                <% staffList.forEach(member => { %>
+                                    <% 
+                                        const roleMeta = getStaffRoleDetails(member.role);
+                                        const cleanName = member.name || 'موظف العيادة';
+                                        const initial = cleanName.replace(/^(د|أ|م)\.?\s*/, '').trim().charAt(0) || 'م';
+                                        const isMedicalDoc = member.role && (member.role.toLowerCase().includes('doc') || member.role.toLowerCase().includes('admin'));
+                                    %>
+                                    <tr id="staff-row-<%= member.id %>">
+                                        <td>
+                                            <div class="d-flex align-items-center gap-2">
+                                                <div class="<%= isMedicalDoc ? 'bg-primary' : 'bg-secondary' %> text-white staff-avatar-circle fw-bold">
+                                                    <%= cleanName.startsWith('د.') ? 'د' : initial %>
+                                                </div>
+                                                <div>
+                                                    <span class="fw-bold text-dark d-block"><%= cleanName %></span>
+                                                    <small class="text-muted"><%= roleMeta.label %></small>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="badge <%= roleMeta.badgeClass %> px-2 py-1 rounded-pill">
+                                                <i class="bi <%= roleMeta.icon %> me-1"></i><%= roleMeta.label %>
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span dir="ltr" class="font-monospace text-muted small fw-semibold">
+                                                <i class="bi bi-telephone text-primary me-1"></i><%= member.phone || 'غير مسجل' %>
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <small class="text-muted">
+                                                <%= member.created_at ? new Date(member.created_at).toLocaleDateString('ar-EG', { year: 'numeric', month: 'short', day: 'numeric' }) : 'نشط' %>
+                                            </small>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2 py-1">
+                                                <i class="bi bi-check-circle-fill me-1"></i>نشط
+                                            </span>
+                                        </td>
+                                        <td class="text-center">
+                                            <div class="d-flex align-items-center justify-content-center gap-2 flex-nowrap staff-action-buttons">
+                                                <button type="button"
+                                                    class="btn btn-outline-warning btn-sm rounded-pill px-3 py-1 permissions-staff-action-btn"
+                                                    data-id="<%= member.id %>" data-name="<%= cleanName %>" data-title="<%= roleMeta.label %>"
+                                                    data-type="staff" data-role="<%= member.role %>" data-active="true"
+                                                    onclick="openPermissionsModalFromButton(this)" title="تعديل الصلاحيات">
+                                                    <i class="bi bi-shield-lock me-1"></i> الصلاحيات
+                                                </button>
+                                                <button type="button"
+                                                    class="btn btn-outline-danger btn-sm rounded-pill px-3 py-1 delete-staff-btn"
+                                                    data-id="<%= member.id %>" data-name="<%= cleanName %>"
+                                                    onclick="deleteStaffMember(<%= member.id %>, '<%= cleanName.replace(/'/g, "\\'") %>')"
+                                                    title="حذف الموظف نهائياً من Supabase">
+                                                    <i class="bi bi-trash3-fill me-1"></i> حذف
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                <% }); %>
+                            <% } else { %>
+                                <tr id="emptyStaffRow">
+                                    <td colspan="6" class="text-center py-4 text-muted">
+                                        <i class="bi bi-people fs-2 text-secondary d-block mb-2"></i>
+                                        لا يوجد موظفون مسجلون في قاعدة البيانات حالياً.
+                                    </td>
+                                </tr>
+                            <% } %>
                         </tbody>
                     </table>
                 </div>
             </div>
 
-            <!-- 3. تبويب الخدمات والأسعار (Services & Pricing) -->
+            <!-- 3. تبويب الخدمات الطبية (Services) -->
             <div class="tab-pane fade" id="services-panel" role="tabpanel">
                 <div class="row g-4">
                     <div class="col-md-5">
                         <div class="card border rounded-3 p-3 bg-light shadow-sm">
-                            <h6 class="fw-bold mb-3"><i class="bi bi-plus-circle me-1 text-primary"></i> إضافة خدمة طبية جديدة</h6>
+                            <h6 class="fw-bold mb-3"><i class="bi bi-plus-circle me-1 text-primary"></i> إضافة خدمة طبية
+                                جديدة</h6>
                             <form method="post" action="/Doctor/Dashboard?handler=AddService">
                                 <div class="mb-3">
                                     <label class="form-label small fw-semibold">اسم الخدمة أو الإجراء الطبي</label>
-                                    <input name="newService" class="form-control" placeholder="مثال: حشو أسنان ليزري تجميلي" required />
+                                    <input name="newService" class="form-control"
+                                        placeholder="مثال: حشو أسنان ليزري تجميلي" required />
                                 </div>
                                 <button type="submit" class="btn btn-primary btn-sm rounded-pill px-3 shadow-sm">
                                     <i class="bi bi-plus-lg me-1"></i> حفظ وإضافة الخدمة
@@ -4664,22 +6306,28 @@ export class WhatsAppNotificationService {
                     </div>
                     <div class="col-md-7">
                         <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h6 class="fw-bold mb-0">الخدمات المتاحة حالياً بالحجز (<%= services ? services.length : 0 %>)</h6>
+                            <h6 class="fw-bold mb-0">الخدمات المتاحة حالياً بالحجز (<%= services ? services.length : 0
+                                    %>)</h6>
                             <span class="text-muted small">تظهر مباشرة في قائمة الحجز للمرضى</span>
                         </div>
                         <div class="d-flex flex-wrap gap-2">
-                            <% if (typeof services !== 'undefined') { %>
-                                <% services.forEach(srv => { %>
-                                    <div class="d-flex align-items-center gap-2 border bg-white rounded-pill px-3 py-2 shadow-sm">
+                            <% if (typeof services !=='undefined' ) { %>
+                                <% services.forEach(srv=> { %>
+                                    <div
+                                        class="d-flex align-items-center gap-2 border bg-white rounded-pill px-3 py-2 shadow-sm">
                                         <i class="bi bi-check2-circle text-primary"></i>
-                                        <span class="fw-semibold small"><%= srv %></span>
-                                        <form method="post" action="/Doctor/Dashboard?handler=DeleteService" class="d-inline ms-1" onsubmit="return confirm('هل تريد حذف هذه الخدمة؟')">
+                                        <span class="fw-semibold small">
+                                            <%= srv %>
+                                        </span>
+                                        <form method="post" action="/Doctor/Dashboard?handler=DeleteService"
+                                            class="d-inline ms-1" onsubmit="return confirm('هل تريد حذف هذه الخدمة؟')">
                                             <input type="hidden" name="serviceName" value="<%= srv %>" />
-                                            <button type="submit" class="btn-close btn-close-sm" style="font-size: 0.65rem;" title="حذف الخدمة"></button>
+                                            <button type="submit" class="btn-close btn-close-sm"
+                                                style="font-size: 0.65rem;" title="حذف الخدمة"></button>
                                         </form>
                                     </div>
-                                <% }); %>
-                            <% } %>
+                                    <% }); %>
+                                        <% } %>
                         </div>
                     </div>
                 </div>
@@ -4687,126 +6335,108 @@ export class WhatsAppNotificationService {
 
             <!-- 4. تبويب إعدادات الورديات والمواعيد (Two-Shift Schedule & Settings) -->
             <div class="tab-pane fade" id="settings-panel" role="tabpanel">
-                <div class="card border-0 rounded-4 shadow-sm p-4 mb-4" style="background: linear-gradient(135deg, #f0fdf4 0%, #e0f2fe 100%);">
-                    <div class="d-flex align-items-center gap-3 mb-2">
-                        <div class="bg-success text-white p-2 rounded-circle d-flex align-items-center justify-content-center" style="width: 44px; height: 44px;">
-                            <i class="bi bi-clock-history fs-4"></i>
+                <form id="clinicSettingsForm" onsubmit="submitSettingsAjax(event)">
+                    <div class="row g-4 mb-4">
+                        <div class="col-12">
+                            <!-- إعدادات رقم الاستفسارات العاجلة للعيادة -->
+                            <div class="card border-0 shadow-sm rounded-4 mb-4 emergency-phone-card">
+                                <div class="card-body p-3 p-md-4">
+                                    <div class="row align-items-center g-3">
+                                        <div class="col-lg-7">
+                                            <div class="d-flex align-items-center gap-3">
+                                                <div class="stat-icon bg-primary-subtle text-primary rounded-circle flex-shrink-0"
+                                                    style="width: 50px; height: 50px; display: flex; align-items: center; justify-content: center;">
+                                                    <i class="bi bi-telephone-inbound-fill fs-4"></i>
+                                                </div>
+                                                <div>
+                                                    <h5 class="fw-bold mb-1 text-dark">رقم هاتف الاستفسارات العاجلة</h5>
+                                                    <p class="text-muted small mb-0">
+                                                        يظهر هذا الرقم لجميع المرضى في أسفل شاشة الحجز فور حفظه.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-lg-5">
+                                            <form method="post" action="/Doctor/Dashboard?handler=UpdateEmergencyPhone"
+                                                class="d-flex align-items-center gap-2">
+                                                <div class="input-group">
+                                                    <span
+                                                        class="input-group-text bg-white border-primary-subtle text-primary">
+                                                        <i class="bi bi-telephone"></i>
+                                                    </span>
+                                                    <input name="EmergencyPhone" value="<%= emergencyPhone %>"
+                                                        class="form-control border-primary-subtle font-monospace fw-bold"
+                                                        placeholder="مثال: 01551388988" dir="ltr"
+                                                        style="letter-spacing: 1px;" required />
+                                                </div>
+                                                <button type="submit"
+                                                    class="btn btn-primary px-3 rounded-3 flex-shrink-0">
+                                                    <i class="bi bi-save me-1"></i> حفظ الرقم
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <div>
-                            <h5 class="fw-bold text-dark mb-0">نظام الورديتين المعتمد وفاصل المواعيد الإلزامي</h5>
-                            <span class="text-secondary small">تم إلغاء التوليد التلقائي القديم، واعتماد ورديتين يومياً بفاصل زمني إلزامي مدته ساعة كاملة (60 دقيقة)</span>
-                        </div>
-                    </div>
-                </div>
 
-                <div class="row g-4 mb-4">
-                    <!-- Morning Shift Card -->
-                    <div class="col-md-6">
-                        <div class="card border-2 border-primary-subtle rounded-3 p-4 bg-white h-100 shadow-sm">
-                            <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
-                                <h6 class="fw-bold text-primary mb-0 fs-5">
-                                    <i class="bi bi-sunrise-fill text-warning me-2"></i> الوردية الصباحية (Morning Shift)
-                                </h6>
-                                <span class="badge bg-primary px-3 py-1 rounded-pill">09:00 ص - 12:00 م</span>
-                            </div>
-                            <p class="text-muted small mb-3">
-                                تتضمن 3 مواعيد كشف ثابتة بفاصل ساعة كاملة بين كل كشف وآخر:
-                            </p>
-                            <div class="row g-2">
-                                <div class="col-4">
-                                    <div class="p-2 border rounded-3 bg-light text-center fw-bold text-dark small">
-                                        <i class="bi bi-clock me-1 text-primary"></i> 09:00 ص
-                                        <div class="text-muted" style="font-size: 0.7rem;">(09:00 - 10:00)</div>
+                        <!-- وحدة إدارة وتخصيص الورديات التفاعلية (بدون بطاقات ثابتة) -->
+                        <div class="col-12">
+                            <div class="card border-0 rounded-4 shadow-sm p-4 bg-white shift-summary-master-card">
+                                <div
+                                    class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+                                    <div>
+                                        <div class="d-flex align-items-center gap-2 mb-1">
+                                            <span
+                                                class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-1 rounded-pill fw-bold">
+                                                <i class="bi bi-clock-history me-1"></i> نظام الورديات المرن
+                                            </span>
+                                            <span
+                                                class="badge bg-success-subtle text-success border border-success-subtle px-3 py-1 rounded-pill">
+                                                <i class="bi bi-check-circle me-1"></i> نشط ومخصص
+                                            </span>
+                                        </div>
+                                        <h5 class="fw-bold text-dark mb-1">مواعيد فترات العمل بالمركز (نظام الورديتين)
+                                        </h5>
+                                        <p class="text-muted small mb-0">يمكنك تعديل أوقات البدء والانتهاء بحرية تامة من
+                                            خلال النافذة المنبثقة التفاعلية.</p>
                                     </div>
-                                </div>
-                                <div class="col-4">
-                                    <div class="p-2 border rounded-3 bg-light text-center fw-bold text-dark small">
-                                        <i class="bi bi-clock me-1 text-primary"></i> 10:00 ص
-                                        <div class="text-muted" style="font-size: 0.7rem;">(10:00 - 11:00)</div>
-                                    </div>
-                                </div>
-                                <div class="col-4">
-                                    <div class="p-2 border rounded-3 bg-light text-center fw-bold text-dark small">
-                                        <i class="bi bi-clock me-1 text-primary"></i> 11:00 ص
-                                        <div class="text-muted" style="font-size: 0.7rem;">(11:00 - 12:00)</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Evening Shift Card -->
-                    <div class="col-md-6">
-                        <div class="card border-2 border-info-subtle rounded-3 p-4 bg-white h-100 shadow-sm">
-                            <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
-                                <h6 class="fw-bold text-info-emphasis mb-0 fs-5">
-                                    <i class="bi bi-sunset-fill text-danger me-2"></i> الوردية المسائية (Evening Shift)
-                                </h6>
-                                <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle px-3 py-1 rounded-pill">12:00 م - 06:00 م</span>
-                            </div>
-                            <p class="text-muted small mb-3">
-                                تتضمن 6 مواعيد كشف ثابتة بفاصل ساعة كاملة بين كل كشف وآخر:
-                            </p>
-                            <div class="row g-2">
-                                <div class="col-4">
-                                    <div class="p-2 border rounded-3 bg-light text-center fw-bold text-dark small">
-                                        <i class="bi bi-clock me-1 text-info"></i> 12:00 م
-                                        <div class="text-muted" style="font-size: 0.7rem;">(12:00 - 01:00)</div>
-                                    </div>
-                                </div>
-                                <div class="col-4">
-                                    <div class="p-2 border rounded-3 bg-light text-center fw-bold text-dark small">
-                                        <i class="bi bi-clock me-1 text-info"></i> 01:00 م
-                                        <div class="text-muted" style="font-size: 0.7rem;">(01:00 - 02:00)</div>
-                                    </div>
-                                </div>
-                                <div class="col-4">
-                                    <div class="p-2 border rounded-3 bg-light text-center fw-bold text-dark small">
-                                        <i class="bi bi-clock me-1 text-info"></i> 02:00 م
-                                        <div class="text-muted" style="font-size: 0.7rem;">(02:00 - 03:00)</div>
-                                    </div>
-                                </div>
-                                <div class="col-4">
-                                    <div class="p-2 border rounded-3 bg-light text-center fw-bold text-dark small">
-                                        <i class="bi bi-clock me-1 text-info"></i> 03:00 م
-                                        <div class="text-muted" style="font-size: 0.7rem;">(03:00 - 04:00)</div>
-                                    </div>
-                                </div>
-                                <div class="col-4">
-                                    <div class="p-2 border rounded-3 bg-light text-center fw-bold text-dark small">
-                                        <i class="bi bi-clock me-1 text-info"></i> 04:00 م
-                                        <div class="text-muted" style="font-size: 0.7rem;">(04:00 - 05:00)</div>
-                                    </div>
-                                </div>
-                                <div class="col-4">
-                                    <div class="p-2 border rounded-3 bg-light text-center fw-bold text-dark small">
-                                        <i class="bi bi-clock me-1 text-info"></i> 05:00 م
-                                        <div class="text-muted" style="font-size: 0.7rem;">(05:00 - 06:00)</div>
+                                    <div>
+                                        <button type="button"
+                                            class="btn btn-primary rounded-pill px-4 py-2 shadow-sm fw-bold d-inline-flex align-items-center gap-2"
+                                            data-bs-toggle="modal" data-bs-target="#shiftEditModal"
+                                            onclick="openShiftEditModal()">
+                                            <i class="bi bi-sliders fs-5"></i>
+                                            <span>تعديل وتخصيص أوقات الورديات</span>
+                                        </button>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <div class="p-3 border rounded-3 bg-light text-muted small">
-                    <i class="bi bi-info-circle-fill text-primary me-1"></i>
-                    <strong>قواعد الجدولة:</strong> لتخصيص جدول أي طبيب معين أو تحديد أيام عمله والوردية الخاصة به (صباحية أو مسائية أو كلتيهما)، يرجى الذهاب إلى تبويب <strong>أطباء المركز والمناوبات</strong> والضغط على زر <strong>الجدول</strong> لكل طبيب لاستخدام واجهة الاختيار السريع (Quick-Select).
-                </div>
+
+                    <!-- رقم هاتف الاستفسارات المخفي لضمان حفظ الإعدادات -->
+                    <input type="hidden" name="EmergencyPhone" id="settingsEmergencyPhone"
+                        value="<%= emergencyPhone %>" />
+                </form>
             </div>
         </div>
     </div>
 </div>
 
 <!-- Modal 1: إضافة وتعديل بيانات الطبيب -->
-<div class="modal fade" id="doctorModal" tabindex="-1" aria-labelledby="doctorModalLabel" aria-hidden="true" style="direction: rtl; text-align: right;">
+<div class="modal fade" id="doctorModal" tabindex="-1" aria-labelledby="doctorModalLabel" aria-hidden="true"
+    style="direction: rtl; text-align: right;">
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content border-0 shadow-lg rounded-4">
-            <div class="modal-header bg-primary text-white rounded-top-4 d-flex justify-content-between align-items-center w-100" style="direction: rtl;">
+            <div class="modal-header bg-primary text-white rounded-top-4 d-flex justify-content-between align-items-center w-100"
+                style="direction: rtl;">
                 <h5 class="modal-title fw-bold m-0 flex-grow-1 text-end" id="doctorModalLabel">
                     <i class="bi bi-person-plus-fill me-2"></i> إضافة طبيب جديد
                 </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="إغلاق" style="margin-right: auto !important; margin-left: 0 !important;"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="إغلاق"
+                    style="margin-right: auto !important; margin-left: 0 !important;"></button>
             </div>
             <form method="post" action="/Doctor/Dashboard?handler=SaveDoctor" id="doctorModalForm">
                 <input type="hidden" name="id" id="modalDocId" value="0" />
@@ -4819,31 +6449,42 @@ export class WhatsAppNotificationService {
                         </div>
                         <div class="row g-3">
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold small">اسم الطبيب بالكامل <span class="text-danger">*</span></label>
+                                <label class="form-label fw-semibold small">اسم الطبيب بالكامل <span
+                                        class="text-danger">*</span></label>
                                 <div class="input-group">
-                                    <span class="input-group-text bg-white"><i class="bi bi-person-fill text-primary"></i></span>
-                                    <input name="name" class="form-control" id="modalDocName" placeholder="مثال: د. حازم حجاج" required />
+                                    <span class="input-group-text bg-white"><i
+                                            class="bi bi-person-fill text-primary"></i></span>
+                                    <input name="name" class="form-control" id="modalDocName"
+                                        placeholder="مثال: د. حازم حجاج" required />
                                 </div>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold small">اللقب والصفة المهنية <span class="text-danger">*</span></label>
+                                <label class="form-label fw-semibold small">اللقب والصفة المهنية <span
+                                        class="text-danger">*</span></label>
                                 <div class="input-group">
-                                    <span class="input-group-text bg-white"><i class="bi bi-award-fill text-warning"></i></span>
-                                    <input name="title" class="form-control" id="modalDocTitle" placeholder="مثال: استشاري أول ورئيس الأطباء" required />
+                                    <span class="input-group-text bg-white"><i
+                                            class="bi bi-award-fill text-warning"></i></span>
+                                    <input name="title" class="form-control" id="modalDocTitle"
+                                        placeholder="مثال: استشاري أول ورئيس الأطباء" required />
                                 </div>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold small">التخصص الطبي الدقيق <span class="text-danger">*</span></label>
+                                <label class="form-label fw-semibold small">التخصص الطبي الدقيق <span
+                                        class="text-danger">*</span></label>
                                 <div class="input-group">
-                                    <span class="input-group-text bg-white"><i class="bi bi-heart-pulse-fill text-danger"></i></span>
-                                    <input name="specialty" class="form-control" id="modalDocSpecialty" placeholder="مثال: جراحة وتجميل وزراعة الأسنان" required />
+                                    <span class="input-group-text bg-white"><i
+                                            class="bi bi-heart-pulse-fill text-danger"></i></span>
+                                    <input name="specialty" class="form-control" id="modalDocSpecialty"
+                                        placeholder="مثال: جراحة وتجميل وزراعة الأسنان" required />
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold small">عيادة / غرفة الفحص</label>
                                 <div class="input-group">
-                                    <span class="input-group-text bg-white"><i class="bi bi-geo-alt-fill text-success"></i></span>
-                                    <input name="climicroom" class="form-control" id="modalDocRoom" placeholder="مثال: العيادة الاستشارية (100) - المبنى الرئيسي" />
+                                    <span class="input-group-text bg-white"><i
+                                            class="bi bi-geo-alt-fill text-success"></i></span>
+                                    <input name="climicroom" class="form-control" id="modalDocRoom"
+                                        placeholder="مثال: العيادة الاستشارية (100) - المبنى الرئيسي" />
                                 </div>
                             </div>
                         </div>
@@ -4859,15 +6500,19 @@ export class WhatsAppNotificationService {
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold small">ساعات العمل والدوام اليومي</label>
                                 <div class="input-group">
-                                    <span class="input-group-text bg-white"><i class="bi bi-clock-fill text-secondary"></i></span>
-                                    <input name="workinghours" class="form-control" id="modalDocWorkingHours" placeholder="مثال: 09:00 ص - 12:00 م | 12:00 م - 06:00 م" />
+                                    <span class="input-group-text bg-white"><i
+                                            class="bi bi-clock-fill text-secondary"></i></span>
+                                    <input name="workinghours" class="form-control" id="modalDocWorkingHours"
+                                        placeholder="مثال: 09:00 ص - 12:00 م | 12:00 م - 06:00 م" />
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold small">أيام الحضور والعمل الأسبوعي</label>
                                 <div class="input-group">
-                                    <span class="input-group-text bg-white"><i class="bi bi-calendar-week text-secondary"></i></span>
-                                    <input name="WorkingDays" class="form-control" id="modalDocWorkingDays" placeholder="مثال: السبت - الخميس (الجمعة إجازة)" />
+                                    <span class="input-group-text bg-white"><i
+                                            class="bi bi-calendar-week text-secondary"></i></span>
+                                    <input name="WorkingDays" class="form-control" id="modalDocWorkingDays"
+                                        placeholder="مثال: السبت - الخميس (الجمعة إجازة)" />
                                 </div>
                             </div>
                         </div>
@@ -4883,31 +6528,40 @@ export class WhatsAppNotificationService {
                             <div class="col-md-4">
                                 <label class="form-label fw-semibold small">سنوات الخبرة</label>
                                 <div class="input-group">
-                                    <span class="input-group-text bg-white"><i class="bi bi-briefcase-fill text-primary"></i></span>
-                                    <input name="experienceyears" type="number" class="form-control" id="modalDocExp" value="5" min="0" />
+                                    <span class="input-group-text bg-white"><i
+                                            class="bi bi-briefcase-fill text-primary"></i></span>
+                                    <input name="experienceyears" type="number" class="form-control" id="modalDocExp"
+                                        value="5" min="0" />
                                 </div>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label fw-semibold small">التقييم العام (من 5.0)</label>
                                 <div class="input-group">
-                                    <span class="input-group-text bg-white"><i class="bi bi-star-fill text-warning"></i></span>
-                                    <input name="Rating" type="number" step="0.1" class="form-control" id="modalDocRating" value="5.0" min="1" max="5" />
+                                    <span class="input-group-text bg-white"><i
+                                            class="bi bi-star-fill text-warning"></i></span>
+                                    <input name="Rating" type="number" step="0.1" class="form-control"
+                                        id="modalDocRating" value="5.0" min="1" max="5" />
                                 </div>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label fw-semibold small d-block">حالة تفعيل الطبيب</label>
-                                <div class="form-check form-switch p-2 bg-white rounded border d-flex align-items-center justify-content-between">
-                                    <label class="form-check-label fw-bold text-success mb-0 small" for="modalDocIsActive">
+                                <div
+                                    class="form-check form-switch p-2 bg-white rounded border d-flex align-items-center justify-content-between">
+                                    <label class="form-check-label fw-bold text-success mb-0 small"
+                                        for="modalDocIsActive">
                                         <i class="bi bi-check-circle-fill me-1"></i> متاح للحجز
                                     </label>
-                                    <input name="IsActive" class="form-check-input ms-0" type="checkbox" id="modalDocIsActive" value="true" checked style="cursor: pointer; width: 2.5em; height: 1.3em;" />
+                                    <input name="IsActive" class="form-check-input ms-0" type="checkbox"
+                                        id="modalDocIsActive" value="true" checked
+                                        style="cursor: pointer; width: 2.5em; height: 1.3em;" />
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
                 <div class="modal-footer bg-light rounded-bottom-4">
-                    <button type="button" class="btn btn-secondary px-4 rounded-pill" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="button" class="btn btn-secondary px-4 rounded-pill"
+                        data-bs-dismiss="modal">إلغاء</button>
                     <button type="submit" class="btn btn-primary px-4 rounded-pill shadow-sm">
                         <i class="bi bi-save me-1"></i> حفظ بيانات الطبيب
                     </button>
@@ -4918,64 +6572,87 @@ export class WhatsAppNotificationService {
 </div>
 
 <!-- Modal 2: جدول وساعات ومواعيد عمل الطبيب بنظام الاختيار السريع (Quick-Select) -->
-<div class="modal fade" id="doctorScheduleModal" tabindex="-1" aria-labelledby="doctorScheduleModalLabel" aria-hidden="true" style="direction: rtl; text-align: right;">
+<div class="modal fade" id="doctorScheduleModal" tabindex="-1" aria-labelledby="doctorScheduleModalLabel"
+    aria-hidden="true" style="direction: rtl; text-align: right;">
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content border-0 shadow-lg rounded-4">
-            <div class="modal-header bg-dark text-white rounded-top-4 d-flex justify-content-between align-items-center w-100" style="direction: rtl;">
+            <div class="modal-header bg-dark text-white rounded-top-4 d-flex justify-content-between align-items-center w-100"
+                style="direction: rtl;">
                 <h5 class="modal-title fw-bold m-0 flex-grow-1 text-end" id="doctorScheduleModalLabel">
                     <i class="bi bi-calendar2-week-fill text-warning me-2"></i> ضبط جدول الورديات وأيام عمل الطبيب
                 </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="إغلاق" style="margin-right: auto !important; margin-left: 0 !important;"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="إغلاق"
+                    style="margin-right: auto !important; margin-left: 0 !important;"></button>
             </div>
             <form id="doctorScheduleForm" onsubmit="submitDoctorScheduleAjax(event)">
                 <input type="hidden" name="scheduleDoctorId" id="schedDocId" />
-                <input type="hidden" name="scheduleWorkingHours" id="schedWorkingHours" value="09:00 ص - 12:00 م | 12:00 م - 06:00 م" />
-                <input type="hidden" name="scheduleWorkingDays" id="schedWorkingDays" value="السبت - الخميس (الجمعة إجازة)" />
+                <input type="hidden" name="scheduleWorkingHours" id="schedWorkingHours"
+                    value="09:00 ص - 12:00 م | 12:00 م - 06:00 م" />
+                <input type="hidden" name="scheduleWorkingDays" id="schedWorkingDays"
+                    value="السبت - الخميس (الجمعة إجازة)" />
 
                 <div class="modal-body p-4">
                     <div id="scheduleModalAlert" class="alert d-none mb-3" role="alert"></div>
 
                     <!-- 1. Quick-Select Shift Mode (نظام الورديات المعتمد) -->
                     <div class="mb-4">
-                        <label class="form-label fw-bold text-dark d-flex align-items-center justify-content-between">
-                            <span><i class="bi bi-clock-history text-primary me-1"></i> 1. تحديد وردية عمل الطبيب (Quick-Select Shift)</span>
-                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle">فاصل ساعة إلزامي</span>
-                        </label>
+                        <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
+                            <label class="form-label fw-bold text-dark m-0">
+                                <i class="bi bi-clock-history text-primary me-1"></i> 1. تحديد وردية عمل الطبيب
+                                (Quick-Select Shift)
+                            </label>
+                            <button type="button" class="btn btn-outline-primary btn-sm rounded-pill px-3"
+                                data-bs-toggle="modal" data-bs-target="#shiftEditModal" onclick="openShiftEditModal()">
+                                <i class="bi bi-sliders me-1"></i> تخصيص مواعيد ورديات المركز
+                            </button>
+                        </div>
                         <div class="row g-2">
                             <div class="col-md-4">
-                                <div class="border rounded-3 p-3 bg-light text-center shift-option-card" id="shiftCardMorning" onclick="selectShiftPreset('morning')" style="cursor: pointer;">
+                                <div class="border rounded-3 p-3 bg-light text-center shift-option-card"
+                                    id="shiftCardMorning" onclick="selectShiftPreset('morning')"
+                                    style="cursor: pointer;">
                                     <div class="form-check form-check-inline m-0">
-                                        <input class="form-check-input" type="radio" name="shiftPresetRadio" id="radioShiftMorning" value="morning">
+                                        <input class="form-check-input" type="radio" name="shiftPresetRadio"
+                                            id="radioShiftMorning" value="morning">
                                         <label class="form-check-label fw-bold text-primary" for="radioShiftMorning">
                                             <i class="bi bi-sunrise-fill text-warning me-1"></i> الوردية الصباحية
                                         </label>
                                     </div>
                                     <div class="small text-muted mt-1 font-monospace">09:00 ص - 12:00 م</div>
-                                    <span class="badge bg-white text-secondary border mt-1" style="font-size: 0.7rem;">3 مواعيد (ساعة/كشف)</span>
+                                    <span class="badge bg-white text-secondary border mt-1" style="font-size: 0.7rem;">3
+                                        مواعيد (ساعة/كشف)</span>
                                 </div>
                             </div>
                             <div class="col-md-4">
-                                <div class="border rounded-3 p-3 bg-light text-center shift-option-card" id="shiftCardEvening" onclick="selectShiftPreset('evening')" style="cursor: pointer;">
+                                <div class="border rounded-3 p-3 bg-light text-center shift-option-card"
+                                    id="shiftCardEvening" onclick="selectShiftPreset('evening')"
+                                    style="cursor: pointer;">
                                     <div class="form-check form-check-inline m-0">
-                                        <input class="form-check-input" type="radio" name="shiftPresetRadio" id="radioShiftEvening" value="evening">
-                                        <label class="form-check-label fw-bold text-info-emphasis" for="radioShiftEvening">
+                                        <input class="form-check-input" type="radio" name="shiftPresetRadio"
+                                            id="radioShiftEvening" value="evening">
+                                        <label class="form-check-label fw-bold text-info-emphasis"
+                                            for="radioShiftEvening">
                                             <i class="bi bi-sunset-fill text-danger me-1"></i> الوردية المسائية
                                         </label>
                                     </div>
                                     <div class="small text-muted mt-1 font-monospace">12:00 م - 06:00 م</div>
-                                    <span class="badge bg-white text-secondary border mt-1" style="font-size: 0.7rem;">6 مواعيد (ساعة/كشف)</span>
+                                    <span class="badge bg-white text-secondary border mt-1" style="font-size: 0.7rem;">6
+                                        مواعيد (ساعة/كشف)</span>
                                 </div>
                             </div>
                             <div class="col-md-4">
-                                <div class="border rounded-3 p-3 bg-light text-center shift-option-card border-success" id="shiftCardBoth" onclick="selectShiftPreset('both')" style="cursor: pointer;">
+                                <div class="border rounded-3 p-3 bg-light text-center shift-option-card border-success"
+                                    id="shiftCardBoth" onclick="selectShiftPreset('both')" style="cursor: pointer;">
                                     <div class="form-check form-check-inline m-0">
-                                        <input class="form-check-input" type="radio" name="shiftPresetRadio" id="radioShiftBoth" value="both" checked>
+                                        <input class="form-check-input" type="radio" name="shiftPresetRadio"
+                                            id="radioShiftBoth" value="both" checked>
                                         <label class="form-check-label fw-bold text-success" for="radioShiftBoth">
                                             <i class="bi bi-lightning-charge-fill text-warning me-1"></i> الورديتان معاً
                                         </label>
                                     </div>
                                     <div class="small text-muted mt-1 font-monospace">09:00 ص - 06:00 م</div>
-                                    <span class="badge bg-success-subtle text-success border border-success-subtle mt-1" style="font-size: 0.7rem;">9 مواعيد كاملة</span>
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle mt-1"
+                                        style="font-size: 0.7rem;">9 مواعيد كاملة</span>
                                 </div>
                             </div>
                         </div>
@@ -4985,42 +6662,53 @@ export class WhatsAppNotificationService {
                     <div class="mb-4">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <label class="form-label fw-bold text-dark mb-0">
-                                <i class="bi bi-calendar-check text-success me-1"></i> 2. تحديد أيام العمل الأسبوعية النشطة للطبيب
+                                <i class="bi bi-calendar-check text-success me-1"></i> 2. تحديد أيام العمل الأسبوعية
+                                النشطة للطبيب
                             </label>
                             <div class="btn-group btn-group-sm">
-                                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="setWorkingDaysPreset('sat-thu')">السبت - الخميس</button>
-                                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="setWorkingDaysPreset('all-week')">كامل الأسبوع</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm"
+                                    onclick="setWorkingDaysPreset('sat-thu')">السبت - الخميس</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm"
+                                    onclick="setWorkingDaysPreset('all-week')">كامل الأسبوع</button>
                             </div>
                         </div>
 
                         <div class="d-flex flex-wrap gap-2 p-3 bg-light rounded-3 border">
                             <div class="form-check form-check-inline">
-                                <input class="form-check-input day-checkbox" type="checkbox" id="daySat" value="السبت" checked onchange="syncWorkingDays()">
+                                <input class="form-check-input day-checkbox" type="checkbox" id="daySat" value="السبت"
+                                    checked onchange="syncWorkingDays()">
                                 <label class="form-check-label fw-semibold" for="daySat">السبت</label>
                             </div>
                             <div class="form-check form-check-inline">
-                                <input class="form-check-input day-checkbox" type="checkbox" id="daySun" value="الأحد" checked onchange="syncWorkingDays()">
+                                <input class="form-check-input day-checkbox" type="checkbox" id="daySun" value="الأحد"
+                                    checked onchange="syncWorkingDays()">
                                 <label class="form-check-label fw-semibold" for="daySun">الأحد</label>
                             </div>
                             <div class="form-check form-check-inline">
-                                <input class="form-check-input day-checkbox" type="checkbox" id="dayMon" value="الإثنين" checked onchange="syncWorkingDays()">
+                                <input class="form-check-input day-checkbox" type="checkbox" id="dayMon" value="الإثنين"
+                                    checked onchange="syncWorkingDays()">
                                 <label class="form-check-label fw-semibold" for="dayMon">الإثنين</label>
                             </div>
                             <div class="form-check form-check-inline">
-                                <input class="form-check-input day-checkbox" type="checkbox" id="dayTue" value="الثلاثاء" checked onchange="syncWorkingDays()">
+                                <input class="form-check-input day-checkbox" type="checkbox" id="dayTue"
+                                    value="الثلاثاء" checked onchange="syncWorkingDays()">
                                 <label class="form-check-label fw-semibold" for="dayTue">الثلاثاء</label>
                             </div>
                             <div class="form-check form-check-inline">
-                                <input class="form-check-input day-checkbox" type="checkbox" id="dayWed" value="الأربعاء" checked onchange="syncWorkingDays()">
+                                <input class="form-check-input day-checkbox" type="checkbox" id="dayWed"
+                                    value="الأربعاء" checked onchange="syncWorkingDays()">
                                 <label class="form-check-label fw-semibold" for="dayWed">الأربعاء</label>
                             </div>
                             <div class="form-check form-check-inline">
-                                <input class="form-check-input day-checkbox" type="checkbox" id="dayThu" value="الخميس" checked onchange="syncWorkingDays()">
+                                <input class="form-check-input day-checkbox" type="checkbox" id="dayThu" value="الخميس"
+                                    checked onchange="syncWorkingDays()">
                                 <label class="form-check-label fw-semibold" for="dayThu">الخميس</label>
                             </div>
                             <div class="form-check form-check-inline">
-                                <input class="form-check-input day-checkbox" type="checkbox" id="dayFri" value="الجمعة" onchange="syncWorkingDays()">
-                                <label class="form-check-label fw-semibold text-danger" for="dayFri">الجمعة (إجازة افتراضية)</label>
+                                <input class="form-check-input day-checkbox" type="checkbox" id="dayFri" value="الجمعة"
+                                    onchange="syncWorkingDays()">
+                                <label class="form-check-label fw-semibold text-danger" for="dayFri">الجمعة (إجازة
+                                    افتراضية)</label>
                             </div>
                         </div>
                         <div class="text-muted small mt-1" id="workingDaysSummaryText">
@@ -5032,7 +6720,8 @@ export class WhatsAppNotificationService {
                     <div class="mb-3">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <label class="form-label fw-bold text-dark mb-0">
-                                <i class="bi bi-stopwatch text-warning me-1"></i> 3. مواعيد الكشف المتاحة (فاصل 60 دقيقة إلزامي بين كل كشف)
+                                <i class="bi bi-stopwatch text-warning me-1"></i> 3. مواعيد الكشف المتاحة (فاصل 60 دقيقة
+                                إلزامي بين كل كشف)
                             </label>
                             <span class="badge bg-success-subtle text-success border border-success-subtle">
                                 <i class="bi bi-check-circle me-1"></i>نظام الورديتين
@@ -5042,28 +6731,35 @@ export class WhatsAppNotificationService {
                         <!-- Morning Section -->
                         <div class="p-3 bg-white rounded-3 border mb-3">
                             <span class="fw-bold text-primary small d-block mb-2">
-                                <i class="bi bi-sunrise text-warning me-1"></i> مواعيد الوردية الصباحية (09:00 ص - 12:00 م)
+                                <i class="bi bi-sunrise text-warning me-1"></i> مواعيد الوردية الصباحية (09:00 ص - 12:00
+                                م)
                             </span>
                             <div class="row g-2" id="morningSlotsContainer">
                                 <div class="col-4">
                                     <div class="form-check border rounded p-2 px-3 bg-light">
-                                        <input class="form-check-input slot-check slot-morning" type="checkbox" name="scheduleSelectedSlots" value="09:00 ص" id="slot_09_00" checked>
+                                        <input class="form-check-input slot-check slot-morning" type="checkbox"
+                                            name="scheduleSelectedSlots" value="09:00 ص" id="slot_09_00" checked>
                                         <label class="form-check-label fw-bold small" for="slot_09_00">09:00 ص</label>
-                                        <small class="text-muted d-block" style="font-size: 0.68rem;">(09:00 - 10:00)</small>
+                                        <small class="text-muted d-block" style="font-size: 0.68rem;">(09:00 -
+                                            10:00)</small>
                                     </div>
                                 </div>
                                 <div class="col-4">
                                     <div class="form-check border rounded p-2 px-3 bg-light">
-                                        <input class="form-check-input slot-check slot-morning" type="checkbox" name="scheduleSelectedSlots" value="10:00 ص" id="slot_10_00" checked>
+                                        <input class="form-check-input slot-check slot-morning" type="checkbox"
+                                            name="scheduleSelectedSlots" value="10:00 ص" id="slot_10_00" checked>
                                         <label class="form-check-label fw-bold small" for="slot_10_00">10:00 ص</label>
-                                        <small class="text-muted d-block" style="font-size: 0.68rem;">(10:00 - 11:00)</small>
+                                        <small class="text-muted d-block" style="font-size: 0.68rem;">(10:00 -
+                                            11:00)</small>
                                     </div>
                                 </div>
                                 <div class="col-4">
                                     <div class="form-check border rounded p-2 px-3 bg-light">
-                                        <input class="form-check-input slot-check slot-morning" type="checkbox" name="scheduleSelectedSlots" value="11:00 ص" id="slot_11_00" checked>
+                                        <input class="form-check-input slot-check slot-morning" type="checkbox"
+                                            name="scheduleSelectedSlots" value="11:00 ص" id="slot_11_00" checked>
                                         <label class="form-check-label fw-bold small" for="slot_11_00">11:00 ص</label>
-                                        <small class="text-muted d-block" style="font-size: 0.68rem;">(11:00 - 12:00)</small>
+                                        <small class="text-muted d-block" style="font-size: 0.68rem;">(11:00 -
+                                            12:00)</small>
                                     </div>
                                 </div>
                             </div>
@@ -5072,49 +6768,62 @@ export class WhatsAppNotificationService {
                         <!-- Evening Section -->
                         <div class="p-3 bg-white rounded-3 border">
                             <span class="fw-bold text-info-emphasis small d-block mb-2">
-                                <i class="bi bi-sunset text-danger me-1"></i> مواعيد الوردية المسائية (12:00 م - 06:00 م)
+                                <i class="bi bi-sunset text-danger me-1"></i> مواعيد الوردية المسائية (12:00 م - 06:00
+                                م)
                             </span>
                             <div class="row g-2" id="eveningSlotsContainer">
                                 <div class="col-4">
                                     <div class="form-check border rounded p-2 px-3 bg-light">
-                                        <input class="form-check-input slot-check slot-evening" type="checkbox" name="scheduleSelectedSlots" value="12:00 م" id="slot_12_00" checked>
+                                        <input class="form-check-input slot-check slot-evening" type="checkbox"
+                                            name="scheduleSelectedSlots" value="12:00 م" id="slot_12_00" checked>
                                         <label class="form-check-label fw-bold small" for="slot_12_00">12:00 م</label>
-                                        <small class="text-muted d-block" style="font-size: 0.68rem;">(12:00 - 01:00)</small>
+                                        <small class="text-muted d-block" style="font-size: 0.68rem;">(12:00 -
+                                            01:00)</small>
                                     </div>
                                 </div>
                                 <div class="col-4">
                                     <div class="form-check border rounded p-2 px-3 bg-light">
-                                        <input class="form-check-input slot-check slot-evening" type="checkbox" name="scheduleSelectedSlots" value="01:00 م" id="slot_01_00" checked>
+                                        <input class="form-check-input slot-check slot-evening" type="checkbox"
+                                            name="scheduleSelectedSlots" value="01:00 م" id="slot_01_00" checked>
                                         <label class="form-check-label fw-bold small" for="slot_01_00">01:00 م</label>
-                                        <small class="text-muted d-block" style="font-size: 0.68rem;">(01:00 - 02:00)</small>
+                                        <small class="text-muted d-block" style="font-size: 0.68rem;">(01:00 -
+                                            02:00)</small>
                                     </div>
                                 </div>
                                 <div class="col-4">
                                     <div class="form-check border rounded p-2 px-3 bg-light">
-                                        <input class="form-check-input slot-check slot-evening" type="checkbox" name="scheduleSelectedSlots" value="02:00 م" id="slot_02_00" checked>
+                                        <input class="form-check-input slot-check slot-evening" type="checkbox"
+                                            name="scheduleSelectedSlots" value="02:00 م" id="slot_02_00" checked>
                                         <label class="form-check-label fw-bold small" for="slot_02_00">02:00 م</label>
-                                        <small class="text-muted d-block" style="font-size: 0.68rem;">(02:00 - 03:00)</small>
+                                        <small class="text-muted d-block" style="font-size: 0.68rem;">(02:00 -
+                                            03:00)</small>
                                     </div>
                                 </div>
                                 <div class="col-4">
                                     <div class="form-check border rounded p-2 px-3 bg-light">
-                                        <input class="form-check-input slot-check slot-evening" type="checkbox" name="scheduleSelectedSlots" value="03:00 م" id="slot_03_00" checked>
+                                        <input class="form-check-input slot-check slot-evening" type="checkbox"
+                                            name="scheduleSelectedSlots" value="03:00 م" id="slot_03_00" checked>
                                         <label class="form-check-label fw-bold small" for="slot_03_00">03:00 م</label>
-                                        <small class="text-muted d-block" style="font-size: 0.68rem;">(03:00 - 04:00)</small>
+                                        <small class="text-muted d-block" style="font-size: 0.68rem;">(03:00 -
+                                            04:00)</small>
                                     </div>
                                 </div>
                                 <div class="col-4">
                                     <div class="form-check border rounded p-2 px-3 bg-light">
-                                        <input class="form-check-input slot-check slot-evening" type="checkbox" name="scheduleSelectedSlots" value="04:00 م" id="slot_04_00" checked>
+                                        <input class="form-check-input slot-check slot-evening" type="checkbox"
+                                            name="scheduleSelectedSlots" value="04:00 م" id="slot_04_00" checked>
                                         <label class="form-check-label fw-bold small" for="slot_04_00">04:00 م</label>
-                                        <small class="text-muted d-block" style="font-size: 0.68rem;">(04:00 - 05:00)</small>
+                                        <small class="text-muted d-block" style="font-size: 0.68rem;">(04:00 -
+                                            05:00)</small>
                                     </div>
                                 </div>
                                 <div class="col-4">
                                     <div class="form-check border rounded p-2 px-3 bg-light">
-                                        <input class="form-check-input slot-check slot-evening" type="checkbox" name="scheduleSelectedSlots" value="05:00 م" id="slot_05_00" checked>
+                                        <input class="form-check-input slot-check slot-evening" type="checkbox"
+                                            name="scheduleSelectedSlots" value="05:00 م" id="slot_05_00" checked>
                                         <label class="form-check-label fw-bold small" for="slot_05_00">05:00 م</label>
-                                        <small class="text-muted d-block" style="font-size: 0.68rem;">(05:00 - 06:00)</small>
+                                        <small class="text-muted d-block" style="font-size: 0.68rem;">(05:00 -
+                                            06:00)</small>
                                     </div>
                                 </div>
                             </div>
@@ -5123,7 +6832,8 @@ export class WhatsAppNotificationService {
                 </div>
 
                 <div class="modal-footer bg-light rounded-bottom-4">
-                    <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="button" class="btn btn-secondary rounded-pill px-4"
+                        data-bs-dismiss="modal">إلغاء</button>
                     <button type="submit" id="saveScheduleBtn" class="btn btn-primary rounded-pill px-4 shadow-sm">
                         <i class="bi bi-save me-1"></i> حفظ جدول الورديات
                     </button>
@@ -5133,44 +6843,305 @@ export class WhatsAppNotificationService {
     </div>
 </div>
 
+<!-- Modal: تعديل وتخصيص أوقات الورديات بمرونة -->
+<div class="modal fade" id="shiftEditModal" tabindex="-1" aria-labelledby="shiftEditModalLabel" aria-hidden="true"
+    style="direction: rtl; text-align: right;">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header bg-primary text-white rounded-top-4 d-flex justify-content-between align-items-center w-100"
+                style="direction: rtl;">
+                <h5 class="modal-title fw-bold m-0 flex-grow-1 text-end" id="shiftEditModalLabel">
+                    <i class="bi bi-clock-history me-2"></i> تعديل وتخصيص أوقات الورديات ومواعيد العمل
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="إغلاق"
+                    style="margin-right: auto !important; margin-left: 0 !important;"></button>
+            </div>
+            <form id="shiftEditForm" onsubmit="submitShiftEditAjax(event)">
+                <div class="modal-body p-4">
+                    <div id="shiftEditAlert" class="alert d-none mb-3" role="alert"></div>
+
+                    <!-- قوالب مواعيد سريعة مسبقة الإعداد -->
+                    <div class="mb-4 p-3 bg-light rounded-3 border">
+                        <label class="form-label fw-bold text-dark small mb-2 d-flex align-items-center gap-1">
+                            <i class="bi bi-lightning-charge-fill text-warning"></i>
+                            <span>قوالب مواعيد سريعة مسبقة الإعداد:</span>
+                        </label>
+                        <div class="d-flex flex-wrap gap-2">
+                            <button type="button" class="btn btn-outline-primary btn-sm rounded-pill px-3"
+                                onclick="applyShiftPreset('standard')">
+                                ☀️ النظام المعتمد (09:00 ص - 12:00 م | 12:00 م - 06:00 م)
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3"
+                                onclick="applyShiftPreset('extended')">
+                                🌅 دوام ممتد (08:00 ص - 01:00 م | 04:00 م - 10:00 م)
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3"
+                                onclick="applyShiftPreset('evening_heavy')">
+                                🌙 دوام مسائي مكثف (10:00 ص - 02:00 م | 04:00 م - 11:00 م)
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="row g-4">
+                        <!-- قسم الوردية الصباحية -->
+                        <div class="col-md-6">
+                            <div class="p-3 border rounded-3 bg-white h-100 shadow-xs border-primary-subtle">
+                                <div class="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2">
+                                    <span class="fw-bold text-primary">
+                                        <i class="bi bi-sunrise text-warning me-1"></i> الوردية الصباحية
+                                    </span>
+                                    <span class="badge bg-primary-subtle text-primary rounded-pill"
+                                        id="morningSlotCountBadge">3 مواعيد</span>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label small fw-semibold">وقت بداية الوردية الصباحية</label>
+                                    <select class="form-select font-monospace" id="inputMorningStart"
+                                        name="morningStart" onchange="recalculateShiftPreview()">
+                                        <option value="07:00 ص">07:00 ص</option>
+                                        <option value="08:00 ص">08:00 ص</option>
+                                        <option value="08:30 ص">08:30 ص</option>
+                                        <option value="09:00 ص" selected>09:00 ص</option>
+                                        <option value="09:30 ص">09:30 ص</option>
+                                        <option value="10:00 ص">10:00 ص</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="form-label small fw-semibold">وقت نهاية الوردية الصباحية</label>
+                                    <select class="form-select font-monospace" id="inputMorningEnd" name="morningEnd"
+                                        onchange="recalculateShiftPreview()">
+                                        <option value="11:00 ص">11:00 ص</option>
+                                        <option value="11:30 ص">11:30 ص</option>
+                                        <option value="12:00 م" selected>12:00 م</option>
+                                        <option value="12:30 م">12:30 م</option>
+                                        <option value="01:00 م">01:00 م</option>
+                                        <option value="02:00 م">02:00 م</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- قسم الوردية المسائية -->
+                        <div class="col-md-6">
+                            <div class="p-3 border rounded-3 bg-white h-100 shadow-xs border-info-subtle">
+                                <div class="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2">
+                                    <span class="fw-bold text-info-emphasis">
+                                        <i class="bi bi-sunset text-danger me-1"></i> الوردية المسائية
+                                    </span>
+                                    <span class="badge bg-info-subtle text-info-emphasis rounded-pill"
+                                        id="eveningSlotCountBadge">6 مواعيد</span>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label small fw-semibold">وقت بداية الوردية المسائية</label>
+                                    <select class="form-select font-monospace" id="inputEveningStart"
+                                        name="eveningStart" onchange="recalculateShiftPreview()">
+                                        <option value="12:00 م" selected>12:00 م</option>
+                                        <option value="12:30 م">12:30 م</option>
+                                        <option value="01:00 م">01:00 م</option>
+                                        <option value="02:00 م">02:00 م</option>
+                                        <option value="03:00 م">03:00 م</option>
+                                        <option value="04:00 م">04:00 م</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="form-label small fw-semibold">وقت نهاية الوردية المسائية</label>
+                                    <select class="form-select font-monospace" id="inputEveningEnd" name="eveningEnd"
+                                        onchange="recalculateShiftPreview()">
+                                        <option value="04:00 م">04:00 م</option>
+                                        <option value="05:00 م">05:00 م</option>
+                                        <option value="06:00 م" selected>06:00 م</option>
+                                        <option value="07:00 م">07:00 م</option>
+                                        <option value="08:00 م">08:00 م</option>
+                                        <option value="09:00 م">09:00 م</option>
+                                        <option value="10:00 م">10:00 م</option>
+                                        <option value="11:00 م">11:00 م</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+
+                        <!-- الفاصل الزمني المعتمد (ثابت 60 دقيقة) -->
+                        <input type="hidden" name="intervalMinutes" id="shiftModalInterval" value="60" />
+
+                    </div>
+                </div>
+
+                <div class="modal-footer bg-light rounded-bottom-4 d-flex justify-content-between">
+                    <button type="button" class="btn btn-secondary rounded-pill px-4"
+                        data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-primary rounded-pill px-4 shadow-sm fw-bold"
+                        id="btnSaveShiftTimes">
+                        <i class="bi bi-check2-circle me-1"></i> حفظ وتطبيق مواعيد الورديات
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: تعديل مستوى الصلاحيات وتوزيع الأدوار (Permissions & Role Assignment Modal) -->
+<div class="modal fade" id="permissionsModal" tabindex="-1" aria-labelledby="permissionsModalLabel" aria-hidden="true"
+    style="direction: rtl; text-align: right;">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header bg-dark text-white rounded-top-4 d-flex justify-content-between align-items-center w-100"
+                style="direction: rtl;">
+                <h5 class="modal-title fw-bold m-0 flex-grow-1 text-end text-white" id="permissionsModalLabel">
+                    <i class="bi bi-shield-lock-fill text-warning me-2"></i> تعديل صلاحيات ودور الكادر
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="إغلاق"
+                    style="margin-right: auto !important; margin-left: 0 !important;"></button>
+            </div>
+            <form id="permissionsModalForm" onsubmit="submitPermissionsAjax(event)">
+                <input type="hidden" name="id" id="permMemberId" value="0" />
+                <input type="hidden" name="type" id="permMemberType" value="doctor" />
+
+                <div class="modal-body p-4">
+                    <div id="permissionsModalAlert" class="alert d-none mb-3" role="alert"></div>
+
+                    <!-- تفاصيل العضو المحدد -->
+                    <div class="p-3 bg-light rounded-3 border mb-3 d-flex align-items-center justify-content-between">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="bg-warning text-dark p-2 rounded-circle d-flex align-items-center justify-content-center fw-bold"
+                                style="width: 44px; height: 44px;">
+                                <i class="bi bi-person-fill-gear fs-4"></i>
+                            </div>
+                            <div>
+                                <h6 class="fw-bold mb-0 text-dark" id="permMemberName">اسم العضو</h6>
+                                <span class="text-muted small" id="permMemberSubtitle">الصفة المهنية</span>
+                            </div>
+                        </div>
+                        <span class="badge bg-primary rounded-pill px-3 py-2" id="permCurrentRoleBadge">طبيب</span>
+                    </div>
+
+                    <!-- اختيار الدور الرئيسي -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold small text-dark">
+                            <i class="bi bi-person-badge-fill text-primary me-1"></i> الدور الوظيفي المعتمد في المنظومة:
+                        </label>
+                        <select class="form-select form-select-lg" name="role" id="permRoleSelect"
+                            onchange="syncRolePermissionsCheckboxes()">
+                            <option value="Super Admin">مدير طبي / كامل الصلاحيات (Super Admin)</option>
+                            <option value="Doctor" selected>طبيب معالج (Doctor)</option>
+                            <option value="Receptionist">موظف استقبال وتنسيق مواعيد (Receptionist)</option>
+                            <option value="Assistant">مساعد طبيب وتعقيم (Assistant)</option>
+                            <option value="Accountant">محاسب ومسؤول مالي (Accountant)</option>
+                        </select>
+                    </div>
+
+                    <!-- تفصيل أذونات وصلاحيات الوصول المباشرة -->
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-dark d-block mb-2">
+                            <i class="bi bi-check-all text-success me-1"></i> حزم الصلاحيات المفعلة لهذا الدور:
+                        </label>
+                        <div class="row g-2">
+                            <div class="col-md-6">
+                                <div class="form-check border rounded p-2 px-3 bg-light">
+                                    <input class="form-check-input perm-check" type="checkbox" id="perm_patients"
+                                        name="permissions" value="patients" checked>
+                                    <label class="form-check-label fw-semibold small" for="perm_patients">الاطلاع على
+                                        ملفات وسجلات المرضى</label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check border rounded p-2 px-3 bg-light">
+                                    <input class="form-check-input perm-check" type="checkbox" id="perm_appointments"
+                                        name="permissions" value="appointments" checked>
+                                    <label class="form-check-label fw-semibold small" for="perm_appointments">إدارة
+                                        وتأكيد وتعديل المواعيد</label>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="form-check border rounded p-2 px-3 bg-light">
+                                    <input class="form-check-input perm-check" type="checkbox" id="perm_pricing"
+                                        name="permissions" value="pricing">
+                                    <label class="form-check-label fw-semibold small" for="perm_pricing">تعديل قائمة
+                                        الخدمات الطبية والتخصصات</label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check border rounded p-2 px-3 bg-light">
+                                    <input class="form-check-input perm-check" type="checkbox" id="perm_staff"
+                                        name="permissions" value="staff">
+                                    <label class="form-check-label fw-semibold small" for="perm_staff">إدارة وتعديل
+                                        حسابات الكادر والموظفين</label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check border rounded p-2 px-3 bg-light">
+                                    <input class="form-check-input perm-check" type="checkbox" id="perm_finance"
+                                        name="permissions" value="finance">
+                                    <label class="form-check-label fw-semibold small" for="perm_finance">الوصول للخزينة
+                                        والتقارير المالية</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- حالة الحساب -->
+                    <div class="p-3 bg-light rounded-3 border mt-3">
+                        <div class="form-check form-switch m-0">
+                            <input class="form-check-input" type="checkbox" id="permIsActive" name="isActive" checked>
+                            <label class="form-check-label fw-bold text-dark" for="permIsActive">حساب مفعل ويسمح له
+                                بتسجيل الدخول</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer bg-light rounded-bottom-4 d-flex justify-content-between align-items-center gap-3 p-3 flex-wrap">
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-4 py-2 fw-semibold"
+                        data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle me-1"></i> إلغاء
+                    </button>
+                    <button type="submit" class="btn btn-primary rounded-pill px-4 py-2 shadow-sm fw-bold"
+                        id="btnSavePermissions">
+                        <i class="bi bi-check2-circle me-1"></i> حفظ وتطبيق الصلاحيات
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- Modal: إضافة كادر / موظف جديد -->
-<div class="modal fade" id="addStaffModal" tabindex="-1" aria-labelledby="addStaffModalLabel" aria-hidden="true" style="direction: rtl; text-align: right;">
+<div class="modal fade" id="addStaffModal" tabindex="-1" aria-labelledby="addStaffModalLabel" aria-hidden="true"
+    style="direction: rtl; text-align: right;">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg rounded-4">
-            <div class="modal-header bg-success text-white rounded-top-4 d-flex justify-content-between align-items-center w-100" style="direction: rtl;">
+            <div class="modal-header bg-success text-white rounded-top-4 d-flex justify-content-between align-items-center w-100"
+                style="direction: rtl;">
                 <h5 class="modal-title fw-bold m-0 flex-grow-1 text-end" id="addStaffModalLabel">
                     <i class="bi bi-person-plus-fill me-2"></i> إضافة موظف / كادر جديد
                 </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="إغلاق" style="margin-right: auto !important; margin-left: 0 !important;"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="إغلاق"
+                    style="margin-right: auto !important; margin-left: 0 !important;"></button>
             </div>
-            <form onsubmit="event.preventDefault(); alert('تم حفظ بيانات الموظف بنجاح.'); bootstrap.Modal.getInstance(document.getElementById('addStaffModal')).hide();">
+            <form id="addStaffForm" method="post" action="/Doctor/Dashboard?handler=AddStaff" onsubmit="handleStaffSubmit(event)">
                 <div class="modal-body p-4">
                     <div class="mb-3">
-                        <label class="form-label small fw-semibold">اسم الموظف بالكامل</label>
-                        <input class="form-control" placeholder="مثال: د. إسلام شريف" required />
+                        <label class="form-label small fw-semibold">اسم الموظف بالكامل <span class="text-danger">*</span></label>
+                        <input name="name" id="staffNameInput" class="form-control" placeholder="مثال: د. إسلام شريف" required />
                     </div>
                     <div class="mb-3">
-                        <label class="form-label small fw-semibold">الدور الوظيفي والصلاحيات</label>
-                        <select class="form-select">
+                        <label class="form-label small fw-semibold">الدور الوظيفي <span class="text-danger">*</span></label>
+                        <select name="role" id="staffRoleInput" class="form-select" required>
                             <option value="doctor">طبيب أسنان (Doctor)</option>
-                            <option value="receptionist">موظف استقبال (Receptionist)</option>
+                            <option value="receptionist" selected>موظف استقبال وتنسيق (Receptionist)</option>
                             <option value="assistant">مساعد طبيب وتعقيم (Assistant)</option>
                             <option value="admin">مدير إداري / طبي (Admin)</option>
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label small fw-semibold">البريد الإلكتروني / اسم الدخول</label>
-                        <input type="text" class="form-control font-monospace" placeholder="username" required />
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label small fw-semibold">كلمة المرور الأولية</label>
-                        <input type="password" class="form-control font-monospace" value="DentalCity2026@" required />
+                        <label class="form-label small fw-semibold">رقم الهاتف المحمول للتواصل <span class="text-danger">*</span></label>
+                        <input name="phone" id="staffPhoneInput" type="tel" dir="ltr" class="form-control font-monospace" placeholder="01xxxxxxxxx" required />
                     </div>
                 </div>
                 <div class="modal-footer bg-light rounded-bottom-4">
-                    <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">إلغاء</button>
-                    <button type="submit" class="btn btn-success rounded-pill px-4 shadow-sm">
-                        <i class="bi bi-save me-1"></i> حفظ وتفعيل الحساب
+                    <button type="button" class="btn btn-secondary rounded-pill px-4"
+                        data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" id="saveStaffBtn" class="btn btn-success rounded-pill px-4 shadow-sm fw-bold">
+                        <i class="bi bi-save me-1"></i> حفظ وتفعيل في Supabase
                     </button>
                 </div>
             </form>
@@ -5179,14 +7150,17 @@ export class WhatsAppNotificationService {
 </div>
 
 <!-- Modal 3: تغيير كلمة المرور للطبيب -->
-<div class="modal fade" id="changePasswordModal" tabindex="-1" aria-labelledby="changePasswordModalLabel" aria-hidden="true" style="direction: rtl; text-align: right;">
+<div class="modal fade" id="changePasswordModal" tabindex="-1" aria-labelledby="changePasswordModalLabel"
+    aria-hidden="true" style="direction: rtl; text-align: right;">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg rounded-4">
-            <div class="modal-header bg-dark text-white rounded-top-4 d-flex justify-content-between align-items-center w-100" style="direction: rtl;">
+            <div class="modal-header bg-dark text-white rounded-top-4 d-flex justify-content-between align-items-center w-100"
+                style="direction: rtl;">
                 <h5 class="modal-title fw-bold m-0 flex-grow-1 text-end" id="changePasswordModalLabel">
                     <i class="bi bi-shield-lock-fill text-warning me-2"></i> تغيير كلمة المرور
                 </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="إغلاق" style="margin-right: auto !important; margin-left: 0 !important;"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="إغلاق"
+                    style="margin-right: auto !important; margin-left: 0 !important;"></button>
             </div>
             <form id="changePasswordForm" onsubmit="submitChangePasswordAjax(event)">
                 <div class="modal-body p-4">
@@ -5198,7 +7172,8 @@ export class WhatsAppNotificationService {
                         </label>
                         <div class="input-group">
                             <span class="input-group-text bg-light"><i class="bi bi-lock-fill"></i></span>
-                            <input type="password" id="currentPasswordInput" name="currentPassword" class="form-control" placeholder="أدخل كلمة المرور الحالية" required />
+                            <input type="password" id="currentPasswordInput" name="currentPassword" class="form-control"
+                                placeholder="أدخل كلمة المرور الحالية" required />
                         </div>
                     </div>
 
@@ -5208,10 +7183,12 @@ export class WhatsAppNotificationService {
                         </label>
                         <div class="input-group">
                             <span class="input-group-text bg-light"><i class="bi bi-key-fill text-warning"></i></span>
-                            <input type="password" id="newPasswordInput" name="newPassword" class="form-control" placeholder="أدخل كلمة المرور الجديدة (6 أحرف على الأقل)" minlength="6" required />
+                            <input type="password" id="newPasswordInput" name="newPassword" class="form-control"
+                                placeholder="أدخل كلمة المرور الجديدة (6 أحرف على الأقل)" minlength="6" required />
                         </div>
                         <small class="text-muted d-block mt-1">
-                            <i class="bi bi-shield-check text-success me-1"></i> يتم تشفير كلمة المرور فورياً بـ SHA-256 وحفظها بأمان تام.
+                            <i class="bi bi-shield-check text-success me-1"></i> يتم تشفير كلمة المرور فورياً بـ SHA-256
+                            وحفظها بأمان تام.
                         </small>
                     </div>
 
@@ -5221,17 +7198,341 @@ export class WhatsAppNotificationService {
                         </label>
                         <div class="input-group">
                             <span class="input-group-text bg-light"><i class="bi bi-check-all text-success"></i></span>
-                            <input type="password" id="confirmPasswordInput" name="confirmPassword" class="form-control" placeholder="أعد كتابة كلمة المرور الجديدة للتأكيد" minlength="6" required />
+                            <input type="password" id="confirmPasswordInput" name="confirmPassword" class="form-control"
+                                placeholder="أعد كتابة كلمة المرور الجديدة للتأكيد" minlength="6" required />
                         </div>
                     </div>
                 </div>
                 <div class="modal-footer bg-light rounded-bottom-4">
-                    <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">إلغاء</button>
-                    <button type="submit" id="savePasswordBtn" class="btn btn-warning rounded-pill px-4 fw-bold shadow-sm">
+                    <button type="button" class="btn btn-secondary rounded-pill px-4"
+                        data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" id="savePasswordBtn"
+                        class="btn btn-warning rounded-pill px-4 fw-bold shadow-sm">
                         <i class="bi bi-check-circle-fill me-1"></i> حفظ وتشفير كلمة المرور
                     </button>
                 </div>
             </form>
+        </div>
+    </div>
+</div>
+
+
+<!-- Management Quick Action Modals (Finance, Inventory, Reports, Staff) -->
+<!-- ================================================================ -->
+<!-- Management Quick Action Modals (Sidebar Integration)              -->
+<!-- ================================================================ -->
+
+<!-- 2. Billing & Finance Modal -->
+<div class="modal fade" id="finance-modal" tabindex="-1" aria-labelledby="financeModalLabel" aria-hidden="true"
+    dir="rtl">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-bottom py-3 bg-light rounded-top-4">
+                <h5 class="modal-title fw-bold text-dark d-flex align-items-center gap-2" id="financeModalLabel">
+                    <i class="bi bi-receipt-cutoff text-success fs-4"></i> الخزينة، الفواتير، وحسابات الدفعات
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="row g-3 mb-3">
+                    <div class="col-sm-4">
+                        <div class="p-3 border rounded-3 bg-success-subtle text-success text-center">
+                            <span class="small fw-semibold d-block">متحصلات الخزينة اليوم</span>
+                            <h4 class="fw-bold my-1">EGP 14,850</h4>
+                            <span class="small text-muted">كاش + إنستاباي + بطاقات</span>
+                        </div>
+                    </div>
+                    <div class="col-sm-4">
+                        <div class="p-3 border rounded-3 bg-primary-subtle text-primary text-center">
+                            <span class="small fw-semibold d-block">إجمالي الفواتير الصادرة</span>
+                            <h4 class="fw-bold my-1">
+                                <%= recentBookings ? recentBookings.length : 0 %> فاتورة
+                            </h4>
+                            <span class="small text-muted">خلال الشهر الحالي</span>
+                        </div>
+                    </div>
+                    <div class="col-sm-4">
+                        <div class="p-3 border rounded-3 bg-warning-subtle text-warning-emphasis text-center">
+                            <span class="small fw-semibold d-block">دفعات وأقساط مستحقة</span>
+                            <h4 class="fw-bold my-1">EGP 3,200</h4>
+                            <span class="small text-muted">تقويم وزراعة أسنان</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>رقم الفاتورة</th>
+                                <th>المريض</th>
+                                <th>الخدمة الطبية</th>
+                                <th>المبلغ</th>
+                                <th>طريقة السداد</th>
+                                <th>الحالة</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="font-monospace fw-bold">#INV-2026-089</td>
+                                <td>أحمد محمود السيد</td>
+                                <td>تنظيف وتلميع الأسنان</td>
+                                <td class="fw-bold">450 ج.م</td>
+                                <td>كاش (نقد)</td>
+                                <td><span class="badge bg-success">مدفوع</span></td>
+                            </tr>
+                            <tr>
+                                <td class="font-monospace fw-bold">#INV-2026-088</td>
+                                <td>سارة إبراهيم علي</td>
+                                <td>حشو ليزر تجميلي عالي الدقة</td>
+                                <td class="fw-bold">850 ج.م</td>
+                                <td>InstaPay</td>
+                                <td><span class="badge bg-success">مدفوع</span></td>
+                            </tr>
+                            <tr>
+                                <td class="font-monospace fw-bold">#INV-2026-087</td>
+                                <td>محمد عبد العزيز</td>
+                                <td>دفعة أولى - تقويم الأسنان</td>
+                                <td class="fw-bold">3,500 ج.م</td>
+                                <td>فيزا / بطاقة بنكية</td>
+                                <td><span class="badge bg-primary">مؤكد</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 3. Inventory Modal -->
+<div class="modal fade" id="inventory-modal" tabindex="-1" aria-labelledby="inventoryModalLabel" aria-hidden="true"
+    dir="rtl">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-bottom py-3 bg-light rounded-top-4">
+                <h5 class="modal-title fw-bold text-dark d-flex align-items-center gap-2" id="inventoryModalLabel">
+                    <i class="bi bi-box-seam text-info fs-4"></i> مخزن المستلزمات الطبية ومواد الحشو
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>المادة الطبية / الصنف</th>
+                                <th>التصنيف</th>
+                                <th>الكمية المتاحة</th>
+                                <th>تاريخ الصلاحية</th>
+                                <th>حالة المخزون</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="fw-semibold">بنج موضعي (Articaine 4% Dental)</td>
+                                <td>تخدير موضعي</td>
+                                <td class="fw-bold font-monospace">48 كربولة</td>
+                                <td>12/2027</td>
+                                <td><span class="badge bg-success">آمن</span></td>
+                            </tr>
+                            <tr>
+                                <td class="fw-semibold">حشوات تجميلية كومبوزيت (3M Filtek)</td>
+                                <td>حشو تجميلي</td>
+                                <td class="fw-bold font-monospace">8 محاقن</td>
+                                <td>08/2028</td>
+                                <td><span class="badge bg-success">آمن</span></td>
+                            </tr>
+                            <tr>
+                                <td class="fw-semibold">أكواب وقفازات طبية معقمة (Latex-free)</td>
+                                <td>مستهلكات عامة</td>
+                                <td class="fw-bold font-monospace">3 علب</td>
+                                <td>05/2026</td>
+                                <td><span class="badge bg-warning text-dark">أوشك على النفاد</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 4. Reports Modal -->
+<div class="modal fade" id="reports-modal" tabindex="-1" aria-labelledby="reportsModalLabel" aria-hidden="true"
+    dir="rtl">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-bottom py-3 bg-light rounded-top-4">
+                <h5 class="modal-title fw-bold text-dark d-flex align-items-center gap-2" id="reportsModalLabel">
+                    <i class="bi bi-graph-up-arrow text-primary fs-4"></i> التقارير والإحصائيات التحليلية
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4 text-center">
+                <div class="row g-3 mb-4 text-start">
+                    <div class="col-md-4">
+                        <div class="p-3 border rounded-3 bg-light text-center">
+                            <h6 class="text-muted small">معدل رضا المرضى</h6>
+                            <h3 class="fw-bold text-success mb-0">98.5%</h3>
+                            <small class="text-muted">بناءً على 120 تقييماً</small>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="p-3 border rounded-3 bg-light text-center">
+                            <h6 class="text-muted small">أكثر الخدمات طلباً</h6>
+                            <h3 class="fw-bold text-primary mb-0">حشو وتجميل</h3>
+                            <small class="text-muted">42% من الحجوزات</small>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="p-3 border rounded-3 bg-light text-center">
+                            <h6 class="text-muted small">الحجوزات الإلكترونية</h6>
+                            <h3 class="fw-bold text-dark mb-0">100%</h3>
+                            <small class="text-muted">مسجلة عبر المنظومة</small>
+                        </div>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-primary rounded-pill px-4" onclick="window.print()">
+                    <i class="bi bi-printer me-1"></i> طباعة التقرير الشامل لعيادات دينتال سيتي
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 5. Staff & Roles Modal -->
+<div class="modal fade" id="staff-modal" tabindex="-1" aria-labelledby="staffModalLabel" aria-hidden="true" dir="rtl">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-bottom py-3 bg-light rounded-top-4">
+                <h5 class="modal-title fw-bold text-dark d-flex align-items-center gap-2" id="staffModalLabel">
+                    <i class="bi bi-people-fill text-dark fs-4"></i> الموظفين وإدارة الصلاحيات
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>الاسم</th>
+                                <th>الدور الوظيفي</th>
+                                <th>البريد / اسم الدخول</th>
+                                <th>الصلاحيات</th>
+                                <th>الحالة</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <% if (typeof staffList !== 'undefined' && staffList.length > 0) { %>
+                                <% staffList.forEach(m => { %>
+                                    <tr>
+                                        <td class="fw-bold text-dark"><%= m.name %></td>
+                                        <td><span class="badge bg-primary-subtle text-primary border border-primary-subtle"><%= m.role %></span></td>
+                                        <td class="font-monospace small" dir="ltr"><%= m.phone || '—' %></td>
+                                        <td><span class="badge bg-light text-dark border">صلاحيات النظام</span></td>
+                                        <td><span class="badge bg-success">نشط</span></td>
+                                    </tr>
+                                <% }); %>
+                            <% } else { %>
+                                <tr>
+                                    <td colspan="5" class="text-center py-3 text-muted">لا يوجد موظفون مسجلون حالياً</td>
+                                </tr>
+                            <% } %>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Patient Booking Details Modal (نافذة تفاصيل حجز المريض) -->
+<div class="modal fade" id="patientDetailsModal" tabindex="-1" aria-labelledby="patientDetailsModalLabel" aria-hidden="true" dir="rtl">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-bottom py-3 bg-light rounded-top-4">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="rounded-circle bg-primary bg-opacity-10 text-primary p-2 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                        <i class="bi bi-person-vcard fs-5"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold text-dark mb-0" id="patientDetailsModalLabel">تفاصيل بيانات حجز المريض</h5>
+                        <small class="text-muted">مركز دينتال سيتي التخصصي لطب الأسنان</small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="إغلاق"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="card border rounded-4 p-3 mb-4 bg-light bg-opacity-50">
+                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="patient-avatar-circle bg-primary text-white fs-4 fw-bold" id="pmAvatar" style="width: 54px; height: 54px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                                م
+                            </div>
+                            <div>
+                                <h5 class="fw-bold text-dark mb-1" id="pmPatientName">-</h5>
+                                <span class="badge bg-secondary rounded-pill" id="pmReferenceBadge">
+                                    <i class="bi bi-hash me-1"></i><span id="pmReference">-</span>
+                                </span>
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            <div class="small text-muted mb-1">حالة الحجز الحالية</div>
+                            <span class="badge fs-6 px-3 py-2 rounded-pill" id="pmStatusBadge">مؤكد</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="p-3 border rounded-3 bg-white h-100">
+                            <label class="text-muted small d-block mb-1"><i class="bi bi-telephone-fill text-primary me-1"></i> رقم الهاتف المحمول</label>
+                            <div class="fw-bold text-dark d-flex align-items-center justify-content-between">
+                                <span id="pmPatientPhone">-</span>
+                                <a href="#" id="pmWhatsappBtn" target="_blank" class="btn btn-sm btn-outline-success rounded-pill px-2 py-1">
+                                    <i class="bi bi-whatsapp"></i> واتساب
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="p-3 border rounded-3 bg-white h-100">
+                            <label class="text-muted small d-block mb-1"><i class="bi bi-person-badge text-primary me-1"></i> الطبيب المعالج والعيادة</label>
+                            <div class="fw-bold text-dark" id="pmDoctorName">-</div>
+                            <small class="text-muted" id="pmSpecialty">-</small>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="p-3 border rounded-3 bg-white h-100">
+                            <label class="text-muted small d-block mb-1"><i class="bi bi-calendar-event text-primary me-1"></i> تاريخ وموعد الكشف</label>
+                            <div class="fw-bold text-dark" id="pmDateTime">-</div>
+                            <small class="text-muted" id="pmShiftType">-</small>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="p-3 border rounded-3 bg-white h-100">
+                            <label class="text-muted small d-block mb-1"><i class="bi bi-bandaid text-primary me-1"></i> الخدمة أو الإجراء الطبي</label>
+                            <div class="fw-bold text-dark" id="pmServiceName">-</div>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="p-3 border rounded-3 bg-white">
+                            <label class="text-muted small d-block mb-1"><i class="bi bi-chat-left-text text-primary me-1"></i> ملاحظات وشكوى المريض</label>
+                            <div class="text-dark" id="pmPatientNotes">-</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-top py-3 bg-light rounded-bottom-4 d-flex justify-content-between">
+                <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle me-1"></i> إغلاق
+                </button>
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" class="btn btn-outline-primary rounded-pill px-3" onclick="window.print()">
+                        <i class="bi bi-printer me-1"></i> طباعة بيانات الحجز
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -5252,72 +7553,223 @@ export class WhatsAppNotificationService {
         if (passEl) changePasswordModalInstance = new bootstrap.Modal(passEl);
     });
 
-    function openAddDoctorModal() {
-        document.getElementById("doctorModalLabel").innerHTML = '<i class="bi bi-person-plus-fill me-2"></i> إضافة طبيب جديد';
-        document.getElementById("modalDocId").value = "0";
-        document.getElementById("modalDocName").value = "";
-        document.getElementById("modalDocTitle").value = "";
-        document.getElementById("modalDocSpecialty").value = "";
-        document.getElementById("modalDocRoom").value = "العيادة الاستشارية";
-        document.getElementById("modalDocExp").value = 5;
-        document.getElementById("modalDocRating").value = 5.0;
-        document.getElementById("modalDocIsActive").checked = true;
-        document.getElementById("modalDocWorkingHours").value = "09:00 ص - 12:00 م | 12:00 م - 06:00 م";
-        document.getElementById("modalDocWorkingDays").value = "السبت - الخميس (الجمعة إجازة)";
-        if (doctorModalInstance) doctorModalInstance.show();
-    }
 
-    function openEditDoctorModal(id, name, title, specialty, room, rating, exp, isActive, hours, days) {
-        document.getElementById("doctorModalLabel").innerHTML = `<i class="bi bi-pencil-square me-2"></i> تعديل بيانات الطبيب (${name})`;
-        document.getElementById("modalDocId").value = id;
-        document.getElementById("modalDocName").value = name;
-        document.getElementById("modalDocTitle").value = title;
-        document.getElementById("modalDocSpecialty").value = specialty;
-        document.getElementById("modalDocRoom").value = room;
-        document.getElementById("modalDocRating").value = rating;
-        document.getElementById("modalDocExp").value = exp;
-        document.getElementById("modalDocIsActive").checked = (isActive === true || isActive === 'true');
-        document.getElementById("modalDocWorkingHours").value = hours;
-        document.getElementById("modalDocWorkingDays").value = days;
-        if (doctorModalInstance) doctorModalInstance.show();
-    }
+    let lastModalOpenTime = 0;
+    function showModalSafely(modalEl) {
+        if (!modalEl) {
+            console.error('Modal element not found');
+            return;
+        }
+        const now = Date.now();
+        if (now - lastModalOpenTime < 250 && modalEl.classList.contains('show')) {
+            return;
+        }
+        lastModalOpenTime = now;
 
-    function selectShiftPreset(mode) {
-        const morningCard = document.getElementById("shiftCardMorning");
-        const eveningCard = document.getElementById("shiftCardEvening");
-        const bothCard = document.getElementById("shiftCardBoth");
-        
-        [morningCard, eveningCard, bothCard].forEach(c => {
-            if (c) c.classList.remove("border-primary", "border-info", "border-success", "bg-white");
-        });
-
-        const morningChecks = document.querySelectorAll(".slot-morning");
-        const eveningChecks = document.querySelectorAll(".slot-evening");
-        const schedHoursInput = document.getElementById("schedWorkingHours");
-
-        if (mode === "morning") {
-            const radio = document.getElementById("radioShiftMorning");
-            if (radio) radio.checked = true;
-            if (morningCard) morningCard.classList.add("border-primary", "bg-white");
-            morningChecks.forEach(c => c.checked = true);
-            eveningChecks.forEach(c => c.checked = false);
-            if (schedHoursInput) schedHoursInput.value = "09:00 ص - 12:00 م";
-        } else if (mode === "evening") {
-            const radio = document.getElementById("radioShiftEvening");
-            if (radio) radio.checked = true;
-            if (eveningCard) eveningCard.classList.add("border-info", "bg-white");
-            morningChecks.forEach(c => c.checked = false);
-            eveningChecks.forEach(c => c.checked = true);
-            if (schedHoursInput) schedHoursInput.value = "12:00 م - 06:00 م";
-        } else {
-            const radio = document.getElementById("radioShiftBoth");
-            if (radio) radio.checked = true;
-            if (bothCard) bothCard.classList.add("border-success", "bg-white");
-            morningChecks.forEach(c => c.checked = true);
-            eveningChecks.forEach(c => c.checked = true);
-            if (schedHoursInput) schedHoursInput.value = "09:00 ص - 12:00 م | 12:00 م - 06:00 م";
+        try {
+            if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                const inst = (typeof bootstrap.Modal.getOrCreateInstance === 'function')
+                    ? bootstrap.Modal.getOrCreateInstance(modalEl)
+                    : new bootstrap.Modal(modalEl);
+                inst.show();
+                return;
+            }
+        } catch (e) {
+            console.warn('Bootstrap modal instance failed, using fallback:', e);
+        }
+        try {
+            if (typeof $ !== 'undefined' && typeof $.fn.modal === 'function') {
+                $(modalEl).modal('show');
+                return;
+            }
+        } catch (e2) { }
+        modalEl.classList.add('show');
+        modalEl.style.display = 'block';
+        modalEl.removeAttribute('aria-hidden');
+        modalEl.setAttribute('aria-modal', 'true');
+        let backdrop = document.querySelector('.modal-backdrop');
+        if (!backdrop) {
+            backdrop = document.createElement('div');
+            backdrop.className = 'modal-backdrop fade show';
+            document.body.appendChild(backdrop);
         }
     }
+
+    // =========================================================================
+    // Permissions & Roles Modal Handlers
+    // =========================================================================
+    function openDoctorPermissionsModal(btn) {
+        try {
+            const id = btn.getAttribute('data-id') || '0';
+            const name = btn.getAttribute('data-name') || 'طبيب';
+            const title = btn.getAttribute('data-title') || 'طبيب معالج';
+            const role = btn.getAttribute('data-role') || 'Doctor';
+            const active = btn.getAttribute('data-active') !== 'false';
+
+            openPermissionsModalInternal(id, 'doctor', name, title, role, active);
+        } catch (e) {
+            console.error('Error opening doctor permissions:', e);
+        }
+    }
+
+    function openPermissionsModalFromButton(btn) {
+        try {
+            const id = btn.getAttribute('data-id') || '0';
+            const name = btn.getAttribute('data-name') || 'عضو الكادر';
+            const title = btn.getAttribute('data-title') || 'موظف';
+            const type = btn.getAttribute('data-type') || 'staff';
+            const role = btn.getAttribute('data-role') || 'Doctor';
+            const active = btn.getAttribute('data-active') !== 'false';
+
+            openPermissionsModalInternal(id, type, name, title, role, active);
+        } catch (e) {
+            console.error('Error opening staff permissions:', e);
+        }
+    }
+
+    function openPermissionsModalInternal(id, type, name, subtitle, role, isActive) {
+        const modalEl = document.getElementById("permissionsModal");
+        if (!modalEl) return;
+
+        const idInp = document.getElementById("permMemberId");
+        const typeInp = document.getElementById("permMemberType");
+        const nameEl = document.getElementById("permMemberName");
+        const subEl = document.getElementById("permMemberSubtitle");
+        const badgeEl = document.getElementById("permCurrentRoleBadge");
+        const roleSel = document.getElementById("permRoleSelect");
+        const activeChk = document.getElementById("permIsActive");
+        const alertEl = document.getElementById("permissionsModalAlert");
+
+        if (idInp) idInp.value = id;
+        if (typeInp) typeInp.value = type;
+        if (nameEl) nameEl.textContent = name;
+        if (subEl) subEl.textContent = subtitle;
+        if (badgeEl) badgeEl.textContent = role;
+        if (activeChk) activeChk.checked = isActive;
+        if (alertEl) alertEl.classList.add("d-none");
+
+        if (roleSel) {
+            const options = Array.from(roleSel.options).map(o => o.value);
+            if (options.includes(role)) {
+                roleSel.value = role;
+            } else if (role.includes('Super') || role.includes('Admin')) {
+                roleSel.value = 'Super Admin';
+            } else if (role.includes('Reception')) {
+                roleSel.value = 'Receptionist';
+            } else if (role.includes('Assistant')) {
+                roleSel.value = 'Assistant';
+            } else {
+                roleSel.value = 'Doctor';
+            }
+        }
+
+        syncRolePermissionsCheckboxes();
+        showModalSafely(modalEl);
+    }
+
+    function syncRolePermissionsCheckboxes() {
+        const role = document.getElementById("permRoleSelect")?.value || 'Doctor';
+        const pPatients = document.getElementById("perm_patients");
+        const pAppts = document.getElementById("perm_appointments");
+        const pPrice = document.getElementById("perm_pricing");
+        const pStaff = document.getElementById("perm_staff");
+        const pFin = document.getElementById("perm_finance");
+
+        if (role === 'Super Admin') {
+            [pPatients, pAppts, pPrice, pStaff, pFin].forEach(c => { if (c) c.checked = true; });
+        } else if (role === 'Doctor') {
+            if (pPatients) pPatients.checked = true;
+            if (pAppts) pAppts.checked = true;
+            if (pPrice) pPrice.checked = false;
+            if (pStaff) pStaff.checked = false;
+            if (pFin) pFin.checked = false;
+        } else if (role === 'Receptionist') {
+            if (pPatients) pPatients.checked = true;
+            if (pAppts) pAppts.checked = true;
+            if (pPrice) pPrice.checked = false;
+            if (pStaff) pStaff.checked = false;
+            if (pFin) pFin.checked = true;
+        } else if (role === 'Assistant') {
+            if (pPatients) pPatients.checked = false;
+            if (pAppts) pAppts.checked = false;
+            if (pPrice) pPrice.checked = false;
+            if (pStaff) pStaff.checked = false;
+            if (pFin) pFin.checked = false;
+        } else if (role === 'Accountant') {
+            if (pPatients) pPatients.checked = false;
+            if (pAppts) pAppts.checked = false;
+            if (pPrice) pPrice.checked = true;
+            if (pStaff) pStaff.checked = false;
+            if (pFin) pFin.checked = true;
+        }
+    }
+
+    async function submitPermissionsAjax(event) {
+        if (event) event.preventDefault();
+        const id = document.getElementById("permMemberId")?.value || '0';
+        const type = document.getElementById("permMemberType")?.value || 'doctor';
+        const role = document.getElementById("permRoleSelect")?.value || 'Doctor';
+        const isActive = document.getElementById("permIsActive")?.checked ? 'true' : 'false';
+
+        const saveBtn = document.getElementById("btnSavePermissions");
+        const alertEl = document.getElementById("permissionsModalAlert");
+
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i class="bi bi-arrow-repeat spin me-1"></i> جاري حفظ الصلاحيات...';
+        }
+
+        try {
+            const params = new URLSearchParams({ id, type, role, isActive });
+            const res = await fetch("/Doctor/Dashboard?handler=UpdatePermissions", {
+                method: "POST",
+                headers: {
+                    "X-Requested-With": "XMLHttpRequest",
+                    "Content-Type": "application/x-www-form-urlencoded"
+                },
+                body: params
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                if (alertEl) {
+                    alertEl.className = "alert alert-success mb-3";
+                    alertEl.textContent = data.message || "تم حفظ وتطبيق الصلاحيات بنجاح.";
+                    alertEl.classList.remove("d-none");
+                }
+                showToastNotification("تم تحديث صلاحيات الكادر بنجاح.");
+                setTimeout(() => {
+                    const modalEl = document.getElementById("permissionsModal");
+                    if (modalEl && typeof bootstrap !== 'undefined') {
+                        const inst = bootstrap.Modal.getInstance(modalEl);
+                        if (inst) inst.hide();
+                    }
+                }, 1000);
+            } else {
+                if (alertEl) {
+                    alertEl.className = "alert alert-danger mb-3";
+                    alertEl.textContent = data.message || "تعذر حفظ الصلاحيات.";
+                    alertEl.classList.remove("d-none");
+                }
+            }
+        } catch (err) {
+            if (alertEl) {
+                alertEl.className = "alert alert-danger mb-3";
+                alertEl.textContent = "حدث خطأ في الاتصال أثناء حفظ الصلاحيات.";
+                alertEl.classList.remove("d-none");
+            }
+        } finally {
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = '<i class="bi bi-check2-circle me-1"></i> حفظ وتطبيق الصلاحيات';
+            }
+        }
+    }
+
+
+
+
+
 
     function setWorkingDaysPreset(preset) {
         const sat = document.getElementById("daySat");
@@ -5357,60 +7809,127 @@ export class WhatsAppNotificationService {
         if (summaryText) summaryText.textContent = "أيام العمل المحددة: " + text;
     }
 
-    function openDoctorScheduleModal(id, name, hours, days, offDay, slots) {
-        document.getElementById("doctorScheduleModalLabel").innerHTML = `<i class="bi bi-calendar2-week-fill text-warning me-2"></i> ضبط جدول الورديات (${name})`;
-        document.getElementById("schedDocId").value = id;
-        document.getElementById("schedWorkingHours").value = hours || "09:00 ص - 12:00 م | 12:00 م - 06:00 م";
-        document.getElementById("schedWorkingDays").value = days || "السبت - الخميس (الجمعة إجازة)";
+    function selectShiftPreset(preset) {
+        try {
+            const morningRadio = document.getElementById("radioShiftMorning");
+            const eveningRadio = document.getElementById("radioShiftEvening");
+            const bothRadio = document.getElementById("radioShiftBoth");
 
-        const daysStr = days || "";
-        const isAllWeek = daysStr.includes("كامل الأسبوع") || daysStr.includes("طوال");
-        const isSatThu = daysStr.includes("السبت - الخميس") || daysStr.includes("الجمعة إجازة");
+            const cardMorning = document.getElementById("shiftCardMorning");
+            const cardEvening = document.getElementById("shiftCardEvening");
+            const cardBoth = document.getElementById("shiftCardBoth");
 
-        if (isAllWeek) {
-            setWorkingDaysPreset('all-week');
-        } else if (isSatThu || !daysStr) {
-            setWorkingDaysPreset('sat-thu');
-        } else {
-            document.querySelectorAll(".day-checkbox").forEach(chk => {
-                chk.checked = daysStr.includes(chk.value) || (chk.value === 'الإثنين' && daysStr.includes('الاثنين'));
+            [cardMorning, cardEvening, cardBoth].forEach(c => {
+                if (c) {
+                    c.classList.remove("border-primary", "border-success", "border-info", "border-2", "shadow-sm");
+                    c.style.borderColor = "";
+                }
             });
-            syncWorkingDays();
+
+            const morningSlots = document.querySelectorAll(".slot-morning");
+            const eveningSlots = document.querySelectorAll(".slot-evening");
+            const hoursInput = document.getElementById("schedWorkingHours");
+
+            const mStart = (typeof activeShiftSettings !== 'undefined' && activeShiftSettings && activeShiftSettings.morningStart) ? activeShiftSettings.morningStart : "09:00 ص";
+            const mEnd = (typeof activeShiftSettings !== 'undefined' && activeShiftSettings && activeShiftSettings.morningEnd) ? activeShiftSettings.morningEnd : "12:00 م";
+            const eStart = (typeof activeShiftSettings !== 'undefined' && activeShiftSettings && activeShiftSettings.eveningStart) ? activeShiftSettings.eveningStart : "12:00 م";
+            const eEnd = (typeof activeShiftSettings !== 'undefined' && activeShiftSettings && activeShiftSettings.eveningEnd) ? activeShiftSettings.eveningEnd : "06:00 م";
+
+            if (preset === 'morning') {
+                if (morningRadio) morningRadio.checked = true;
+                if (cardMorning) {
+                    cardMorning.classList.add("border-primary", "border-2", "shadow-sm");
+                }
+                morningSlots.forEach(s => s.checked = true);
+                eveningSlots.forEach(s => s.checked = false);
+                if (hoursInput) hoursInput.value = `${mStart} - ${mEnd}`;
+            } else if (preset === 'evening') {
+                if (eveningRadio) eveningRadio.checked = true;
+                if (cardEvening) {
+                    cardEvening.classList.add("border-info", "border-2", "shadow-sm");
+                }
+                morningSlots.forEach(s => s.checked = false);
+                eveningSlots.forEach(s => s.checked = true);
+                if (hoursInput) hoursInput.value = `${eStart} - ${eEnd}`;
+            } else {
+                if (bothRadio) bothRadio.checked = true;
+                if (cardBoth) {
+                    cardBoth.classList.add("border-success", "border-2", "shadow-sm");
+                }
+                morningSlots.forEach(s => s.checked = true);
+                eveningSlots.forEach(s => s.checked = true);
+                if (hoursInput) hoursInput.value = `${mStart} - ${mEnd} | ${eStart} - ${eEnd}`;
+            }
+        } catch (err) {
+            console.warn('Error in selectShiftPreset:', err);
         }
-
-        const currentSlots = Array.isArray(slots) ? slots : [];
-        const hasMorning = currentSlots.some(s => s.includes("ص") || s.startsWith("09:") || s.startsWith("10:") || s.startsWith("11:"));
-        const hasEvening = currentSlots.some(s => s.includes("م") || s.startsWith("12:") || s.startsWith("01:") || s.startsWith("02:") || s.startsWith("03:") || s.startsWith("04:") || s.startsWith("05:"));
-
-        if (hasMorning && !hasEvening) {
-            selectShiftPreset('morning');
-        } else if (!hasMorning && hasEvening) {
-            selectShiftPreset('evening');
-        } else {
-            selectShiftPreset('both');
-        }
-
-        if (currentSlots.length > 0) {
-            document.querySelectorAll(".slot-check").forEach(chk => {
-                chk.checked = currentSlots.some(s => s.trim() === chk.value.trim());
-            });
-        }
-
-        if (doctorScheduleModalInstance) doctorScheduleModalInstance.show();
     }
+
+    function openDoctorScheduleModal(id, name, hours, days, offDay, slots) {
+        const modalEl = document.getElementById("doctorScheduleModal");
+        if (!modalEl) return;
+
+        try {
+            const label = document.getElementById("doctorScheduleModalLabel");
+            if (label) label.innerHTML = `<i class="bi bi-calendar2-week-fill text-warning me-2"></i> ضبط جدول الورديات (${name})`;
+            if (document.getElementById("schedDocId")) document.getElementById("schedDocId").value = id;
+            if (document.getElementById("schedWorkingHours")) document.getElementById("schedWorkingHours").value = hours || "09:00 ص - 12:00 م | 12:00 م - 06:00 م";
+            if (document.getElementById("schedWorkingDays")) document.getElementById("schedWorkingDays").value = days || "السبت - الخميس (الجمعة إجازة)";
+
+            const daysStr = days || "";
+            const isAllWeek = daysStr.includes("كامل الأسبوع") || daysStr.includes("طوال");
+            const isSatThu = daysStr.includes("السبت - الخميس") || daysStr.includes("الجمعة إجازة");
+
+            if (isAllWeek) {
+                setWorkingDaysPreset('all-week');
+            } else if (isSatThu || !daysStr) {
+                setWorkingDaysPreset('sat-thu');
+            } else {
+                document.querySelectorAll(".day-checkbox").forEach(chk => {
+                    chk.checked = daysStr.includes(chk.value) || (chk.value === 'الإثنين' && daysStr.includes('الاثنين'));
+                });
+                syncWorkingDays();
+            }
+
+            const currentSlots = Array.isArray(slots) ? slots : [];
+            const hasMorning = currentSlots.some(s => typeof s === 'string' && (s.includes("ص") || s.startsWith("09:") || s.startsWith("10:") || s.startsWith("11:")));
+            const hasEvening = currentSlots.some(s => typeof s === 'string' && (s.includes("م") || s.startsWith("12:") || s.startsWith("01:") || s.startsWith("02:") || s.startsWith("03:") || s.startsWith("04:") || s.startsWith("05:")));
+
+            if (hasMorning && !hasEvening) {
+                selectShiftPreset('morning');
+            } else if (!hasMorning && hasEvening) {
+                selectShiftPreset('evening');
+            } else {
+                selectShiftPreset('both');
+            }
+
+            if (currentSlots.length > 0) {
+                document.querySelectorAll(".slot-check").forEach(chk => {
+                    chk.checked = currentSlots.some(s => typeof s === 'string' && s.trim() === chk.value.trim());
+                });
+            }
+        } catch (innerErr) {
+            console.warn('Non-fatal error initializing schedule modal data:', innerErr);
+        }
+
+        showModalSafely(modalEl);
+    }
+    window.openDoctorScheduleModal = openDoctorScheduleModal;
 
     function openAddStaffModal() {
         const modalEl = document.getElementById("addStaffModal");
         if (modalEl && typeof bootstrap !== 'undefined') {
-            bootstrap.Modal.getOrCreateInstance(modalEl).show();
+            showModalSafely(modalEl);
         }
     }
 
     function openChangePasswordModal() {
+        const modalEl = document.getElementById("changePasswordModal");
+        if (!modalEl) return;
         const alertEl = document.getElementById("changePasswordAlert");
         if (alertEl) alertEl.classList.add("d-none");
         document.getElementById("changePasswordForm")?.reset();
-        if (changePasswordModalInstance) changePasswordModalInstance.show();
+        showModalSafely(modalEl);
     }
 
     async function submitChangePasswordAjax(event) {
@@ -5524,6 +8043,541 @@ export class WhatsAppNotificationService {
             saveBtn.innerHTML = '<i class="bi bi-save me-1"></i> حفظ جدول المواعيد';
         }
     }
+
+
+    window.openAddDoctorModal = function () {
+        const form = document.getElementById("doctorModalForm");
+        if (form) form.reset();
+        if (document.getElementById("modalDocId")) document.getElementById("modalDocId").value = "0";
+        if (document.getElementById("doctorModalLabel")) {
+            document.getElementById("doctorModalLabel").innerHTML = '<i class="bi bi-person-plus-fill me-2"></i> إضافة طبيب جديد';
+        }
+        if (document.getElementById("modalDocIsActive")) document.getElementById("modalDocIsActive").checked = true;
+        const modalEl = document.getElementById("doctorModal");
+        if (modalEl) showModalSafely(modalEl);
+    };
+
+    window.openEditDoctorModal = function (id, name, title, specialty, room, rating, exp, active, hours, days) {
+        const form = document.getElementById("doctorModalForm");
+        if (form) form.reset();
+        if (document.getElementById("modalDocId")) document.getElementById("modalDocId").value = id || "0";
+        if (document.getElementById("modalDocName")) document.getElementById("modalDocName").value = name || "";
+        if (document.getElementById("modalDocTitle")) document.getElementById("modalDocTitle").value = title || "";
+        if (document.getElementById("modalDocSpecialty")) document.getElementById("modalDocSpecialty").value = specialty || "";
+        if (document.getElementById("modalDocRoom")) document.getElementById("modalDocRoom").value = room || "";
+        if (document.getElementById("modalDocRating")) document.getElementById("modalDocRating").value = rating || "5.0";
+        if (document.getElementById("modalDocExp")) document.getElementById("modalDocExp").value = exp || "5";
+        if (document.getElementById("modalDocIsActive")) document.getElementById("modalDocIsActive").checked = (active === true || active === "true");
+        if (document.getElementById("modalDocWorkingHours")) document.getElementById("modalDocWorkingHours").value = hours || "";
+        if (document.getElementById("modalDocWorkingDays")) document.getElementById("modalDocWorkingDays").value = days || "";
+        if (document.getElementById("doctorModalLabel")) {
+            document.getElementById("doctorModalLabel").innerHTML = '<i class="bi bi-pencil-square me-2"></i> تعديل بيانات الطبيب: ' + (name || '');
+        }
+        const modalEl = document.getElementById("doctorModal");
+        if (modalEl) showModalSafely(modalEl);
+    };
+
+    window.openEditDoctorModalFromButton = function (btn) {
+        try {
+            const id = btn.getAttribute('data-id') || '0';
+            const name = btn.getAttribute('data-name') || '';
+            const title = btn.getAttribute('data-title') || '';
+            const specialty = btn.getAttribute('data-specialty') || '';
+            const room = btn.getAttribute('data-room') || '';
+            const rating = btn.getAttribute('data-rating') || '5.0';
+            const exp = btn.getAttribute('data-exp') || '5';
+            const active = btn.getAttribute('data-active') === 'true';
+            const hours = btn.getAttribute('data-hours') || '09:00 ص - 12:00 م | 12:00 م - 06:00 م';
+            const days = btn.getAttribute('data-days') || 'السبت - الخميس (الجمعة إجازة)';
+
+            window.openEditDoctorModal(id, name, title, specialty, room, rating, exp, active, hours, days);
+        } catch (err) {
+            console.error('Error in openEditDoctorModalFromButton:', err);
+        }
+    };
+
+    window.openDoctorScheduleModalFromButton = function (btn) {
+        try {
+            const id = btn.getAttribute('data-id') || '0';
+            const name = btn.getAttribute('data-name') || '';
+            const hours = btn.getAttribute('data-hours') || '09:00 ص - 12:00 م | 12:00 م - 06:00 م';
+            const days = btn.getAttribute('data-days') || 'السبت - الخميس (الجمعة إجازة)';
+            const offDay = btn.getAttribute('data-offday') || 5;
+            const rawSlots = btn.getAttribute('data-slots');
+            let slots = [];
+            if (rawSlots) {
+                try {
+                    slots = JSON.parse(decodeURIComponent(rawSlots));
+                } catch (e) {
+                    try {
+                        slots = JSON.parse(rawSlots);
+                    } catch (e2) {
+                        console.warn('Could not parse slots:', e2);
+                    }
+                }
+            }
+            window.openDoctorScheduleModal(id, name, hours, days, offDay, slots);
+        } catch (err) {
+            console.error('Error in openDoctorScheduleModalFromButton:', err);
+        }
+    };
+
+    // =========================================================================
+    // Dynamic Two-Shift Settings & Interactive Customization System
+    // =========================================================================
+    let activeShiftSettings = {
+        morningStart: '<%= (typeof shiftSettings !== "undefined" && shiftSettings.morningStart) ? shiftSettings.morningStart : "09:00 ص" %>',
+        morningEnd: '<%= (typeof shiftSettings !== "undefined" && shiftSettings.morningEnd) ? shiftSettings.morningEnd : "12:00 م" %>',
+        eveningStart: '<%= (typeof shiftSettings !== "undefined" && shiftSettings.eveningStart) ? shiftSettings.eveningStart : "12:00 م" %>',
+        eveningEnd: '<%= (typeof shiftSettings !== "undefined" && shiftSettings.eveningEnd) ? shiftSettings.eveningEnd : "06:00 م" %>',
+        intervalMinutes: <%= (typeof shiftSettings !== "undefined" && shiftSettings.intervalMinutes) ? shiftSettings.intervalMinutes : 60 %>
+    };
+
+    function openShiftEditModal() {
+        const modalEl = document.getElementById("shiftEditModal");
+        if (!modalEl) return;
+
+        const mStart = document.getElementById("inputMorningStart");
+        const mEnd = document.getElementById("inputMorningEnd");
+        const eStart = document.getElementById("inputEveningStart");
+        const eEnd = document.getElementById("inputEveningEnd");
+
+        if (mStart) mStart.value = activeShiftSettings.morningStart;
+        if (mEnd) mEnd.value = activeShiftSettings.morningEnd;
+        if (eStart) eStart.value = activeShiftSettings.eveningStart;
+        if (eEnd) eEnd.value = activeShiftSettings.eveningEnd;
+
+        const intervalRadios = document.querySelectorAll('input[name="intervalMinutes"]');
+        intervalRadios.forEach(r => {
+            r.checked = (parseInt(r.value, 10) === activeShiftSettings.intervalMinutes);
+        });
+
+        const alertEl = document.getElementById("shiftEditAlert");
+        if (alertEl) alertEl.classList.add("d-none");
+
+        recalculateShiftPreview();
+        showModalSafely(modalEl);
+    }
+
+    function applyShiftPreset(preset) {
+        const mStart = document.getElementById("inputMorningStart");
+        const mEnd = document.getElementById("inputMorningEnd");
+        const eStart = document.getElementById("inputEveningStart");
+        const eEnd = document.getElementById("inputEveningEnd");
+        const interval60 = document.getElementById("interval60");
+
+        if (preset === 'standard') {
+            if (mStart) mStart.value = "09:00 ص";
+            if (mEnd) mEnd.value = "12:00 م";
+            if (eStart) eStart.value = "12:00 م";
+            if (eEnd) eEnd.value = "06:00 م";
+            if (interval60) interval60.checked = true;
+        } else if (preset === 'extended') {
+            if (mStart) mStart.value = "08:00 ص";
+            if (mEnd) mEnd.value = "01:00 م";
+            if (eStart) eStart.value = "04:00 م";
+            if (eEnd) eEnd.value = "10:00 م";
+            if (interval60) interval60.checked = true;
+        } else if (preset === 'evening_heavy') {
+            if (mStart) mStart.value = "10:00 ص";
+            if (mEnd) mEnd.value = "02:00 م";
+            if (eStart) eStart.value = "04:00 م";
+            if (eEnd) eEnd.value = "11:00 م";
+            if (interval60) interval60.checked = true;
+        }
+        recalculateShiftPreview();
+    }
+
+    function parseTime24HJs(timeStr) {
+        if (!timeStr) return { hour: 9, minute: 0 };
+        const clean = timeStr.trim();
+        const m = clean.match(/^(\d{1,2}):(\d{2})\s*([صم])?$/);
+        if (!m) return { hour: 9, minute: 0 };
+        let h = parseInt(m[1], 10);
+        const min = parseInt(m[2], 10);
+        const marker = m[3] || '';
+        if (marker === 'م' && h < 12) h += 12;
+        if (marker === 'ص' && h === 12) h = 0;
+        return { hour: h, minute: min };
+    }
+
+    function formatTimeArabicJs(totalMins) {
+        const h = Math.floor(totalMins / 60);
+        const m = totalMins % 60;
+        const marker = h < 12 ? 'ص' : 'م';
+        let displayH = h % 12;
+        if (displayH === 0) displayH = 12;
+        return `${displayH.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')} ${marker}`;
+    }
+
+    function generateSlotsJs(startStr, endStr, interval) {
+        const s = parseTime24HJs(startStr);
+        const e = parseTime24HJs(endStr);
+        let cur = s.hour * 60 + s.minute;
+        const end = e.hour * 60 + e.minute;
+        const slots = [];
+        const step = Math.max(15, interval || 60);
+        while (cur < end) {
+            slots.push(formatTimeArabicJs(cur));
+            cur += step;
+        }
+        return slots;
+    }
+
+    function recalculateShiftPreview() {
+        const mStart = document.getElementById("inputMorningStart")?.value || "09:00 ص";
+        const mEnd = document.getElementById("inputMorningEnd")?.value || "12:00 م";
+        const eStart = document.getElementById("inputEveningStart")?.value || "12:00 م";
+        const eEnd = document.getElementById("inputEveningEnd")?.value || "06:00 م";
+        const selectedInterval = parseInt(document.querySelector('input[name="intervalMinutes"]:checked')?.value || "60", 10);
+
+        const morningSlots = generateSlotsJs(mStart, mEnd, selectedInterval);
+        const eveningSlots = generateSlotsJs(eStart, eEnd, selectedInterval);
+
+        const mBadge = document.getElementById("morningSlotCountBadge");
+        const eBadge = document.getElementById("eveningSlotCountBadge");
+        const totalBadge = document.getElementById("totalSlotsCountBadge");
+        const previewContainer = document.getElementById("generatedSlotsPreview");
+
+        if (mBadge) mBadge.textContent = `${morningSlots.length} مواعيد`;
+        if (eBadge) eBadge.textContent = `${eveningSlots.length} مواعيد`;
+        if (totalBadge) totalBadge.textContent = `${morningSlots.length + eveningSlots.length} مواعيد إجمالية`;
+
+        if (previewContainer) {
+            previewContainer.innerHTML = '';
+            morningSlots.forEach(s => {
+                const span = document.createElement("span");
+                span.className = "badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1 font-monospace";
+                span.textContent = "☀️ " + s;
+                previewContainer.appendChild(span);
+            });
+            eveningSlots.forEach(s => {
+                const span = document.createElement("span");
+                span.className = "badge bg-info-subtle text-info-emphasis border border-info-subtle px-2 py-1 font-monospace";
+                span.textContent = "🌙 " + s;
+                previewContainer.appendChild(span);
+            });
+        }
+    }
+
+    async function submitShiftEditAjax(event) {
+        if (event) event.preventDefault();
+        const mStart = document.getElementById("inputMorningStart")?.value || "09:00 ص";
+        const mEnd = document.getElementById("inputMorningEnd")?.value || "12:00 م";
+        const eStart = document.getElementById("inputEveningStart")?.value || "12:00 م";
+        const eEnd = document.getElementById("inputEveningEnd")?.value || "06:00 م";
+        const selectedInterval = parseInt(document.querySelector('input[name="intervalMinutes"]:checked')?.value || "60", 10);
+
+        const saveBtn = document.getElementById("btnSaveShiftTimes");
+        const alertEl = document.getElementById("shiftEditAlert");
+
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i class="bi bi-arrow-repeat spin me-1"></i> جاري حفظ الورديات...';
+        }
+
+        try {
+            const params = new URLSearchParams({
+                morningStart: mStart,
+                morningEnd: mEnd,
+                eveningStart: eStart,
+                eveningEnd: eEnd,
+                intervalMinutes: selectedInterval.toString()
+            });
+
+            const res = await fetch("/Doctor/Dashboard?handler=UpdateShiftSettings", {
+                method: "POST",
+                headers: {
+                    "X-Requested-With": "XMLHttpRequest",
+                    "Content-Type": "application/x-www-form-urlencoded"
+                },
+                body: params
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                activeShiftSettings.morningStart = mStart;
+                activeShiftSettings.morningEnd = mEnd;
+                activeShiftSettings.eveningStart = eStart;
+                activeShiftSettings.eveningEnd = eEnd;
+                activeShiftSettings.intervalMinutes = selectedInterval;
+
+                const dispMorning = document.getElementById("dispMorningRange");
+                const dispEvening = document.getElementById("dispEveningRange");
+                // interval display removed
+                const dispSettingInterval = document.getElementById("settingsIntervalDisplay");
+
+                if (dispMorning) dispMorning.textContent = `${mStart} - ${mEnd}`;
+                if (dispEvening) dispEvening.textContent = `${eStart} - ${eEnd}`;
+
+                if (dispSettingInterval) dispSettingInterval.value = `${selectedInterval} دقيقة بين كل موعد`;
+
+                updateDoctorScheduleModalSlots(mStart, mEnd, eStart, eEnd, selectedInterval);
+
+                if (alertEl) {
+                    alertEl.className = "alert alert-success mb-3";
+                    alertEl.textContent = data.message || "تم حفظ وتطبيق أوقات الورديات بنجاح.";
+                    alertEl.classList.remove("d-none");
+                }
+
+                showToastNotification("تم تحديث مواعيد الورديات بنجاح في جميع أقسام المركز.");
+
+                setTimeout(() => {
+                    const modalEl = document.getElementById("shiftEditModal");
+                    if (modalEl && typeof bootstrap !== 'undefined') {
+                        const inst = bootstrap.Modal.getInstance(modalEl);
+                        if (inst) inst.hide();
+                    }
+                }, 1200);
+            } else {
+                if (alertEl) {
+                    alertEl.className = "alert alert-danger mb-3";
+                    alertEl.textContent = data.message || "تعذر حفظ إعدادات الورديات.";
+                    alertEl.classList.remove("d-none");
+                }
+            }
+        } catch (err) {
+            if (alertEl) {
+                alertEl.className = "alert alert-danger mb-3";
+                alertEl.textContent = "حدث خطأ في الاتصال أثناء حفظ الورديات.";
+                alertEl.classList.remove("d-none");
+            }
+        } finally {
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = '<i class="bi bi-check2-circle me-1"></i> حفظ وتطبيق مواعيد الورديات';
+            }
+        }
+    }
+
+    function updateDoctorScheduleModalSlots(mStart, mEnd, eStart, eEnd, interval) {
+        const morningCardHours = document.querySelector("#shiftCardMorning .font-monospace");
+        const eveningCardHours = document.querySelector("#shiftCardEvening .font-monospace");
+        const bothCardHours = document.querySelector("#shiftCardBoth .font-monospace");
+
+        if (morningCardHours) morningCardHours.textContent = `${mStart} - ${mEnd}`;
+        if (eveningCardHours) eveningCardHours.textContent = `${eStart} - ${eEnd}`;
+        if (bothCardHours) bothCardHours.textContent = `${mStart} - ${eEnd}`;
+
+        const morningSlots = generateSlotsJs(mStart, mEnd, interval);
+        const eveningSlots = generateSlotsJs(eStart, eEnd, interval);
+
+        const mContainer = document.getElementById("morningSlotsContainer");
+        const eContainer = document.getElementById("eveningSlotsContainer");
+
+        if (mContainer) {
+            mContainer.innerHTML = '';
+            morningSlots.forEach(s => {
+                const col = document.createElement("div");
+                col.className = "col-4";
+                col.innerHTML = `
+                    <div class="form-check border rounded p-2 px-3 bg-light">
+                        <input class="form-check-input slot-check slot-morning" type="checkbox" name="scheduleSelectedSlots" value="${s}" id="slot_${s.replace(/[^a-zA-Z0-9]/g, '_')}" checked>
+                        <label class="form-check-label fw-bold small" for="slot_${s.replace(/[^a-zA-Z0-9]/g, '_')}">${s}</label>
+                    </div>
+                `;
+                mContainer.appendChild(col);
+            });
+        }
+
+        if (eContainer) {
+            eContainer.innerHTML = '';
+            eveningSlots.forEach(s => {
+                const col = document.createElement("div");
+                col.className = "col-4";
+                col.innerHTML = `
+                    <div class="form-check border rounded p-2 px-3 bg-light">
+                        <input class="form-check-input slot-check slot-evening" type="checkbox" name="scheduleSelectedSlots" value="${s}" id="slot_${s.replace(/[^a-zA-Z0-9]/g, '_')}" checked>
+                        <label class="form-check-label fw-bold small" for="slot_${s.replace(/[^a-zA-Z0-9]/g, '_')}">${s}</label>
+                    </div>
+                `;
+                eContainer.appendChild(col);
+            });
+        }
+    }
+
+    async function submitSettingsAjax(e) {
+        if (e) e.preventDefault();
+        const phone = document.getElementById('settingsEmergencyPhone').value;
+        const btn = document.getElementById('btnSettingsSave');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="bi bi-arrow-repeat spin me-1"></i> جاري الحفظ والتأمين...';
+        }
+
+        try {
+            const params = new URLSearchParams({
+                EmergencyPhone: phone,
+                morningStart: activeShiftSettings.morningStart,
+                morningEnd: activeShiftSettings.morningEnd,
+                eveningStart: activeShiftSettings.eveningStart,
+                eveningEnd: activeShiftSettings.eveningEnd,
+                intervalMinutes: activeShiftSettings.intervalMinutes.toString()
+            });
+            const res = await fetch("/Doctor/Dashboard?handler=UpdateSettings", {
+                method: "POST",
+                headers: {
+                    "X-Requested-With": "XMLHttpRequest",
+                    "Content-Type": "application/x-www-form-urlencoded"
+                },
+                body: params
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                showToastNotification(data.message || "تم حفظ إعدادات المنظومة وفصل/تأمين جلسة الحساب بنجاح.");
+                document.querySelectorAll('input[name="EmergencyPhone"]').forEach(inp => inp.value = phone);
+            } else {
+                showToastNotification(data.message || "تعذر حفظ الإعدادات", false);
+            }
+        } catch (err) {
+            showToastNotification("حدث خطأ في الاتصال أثناء حفظ الإعدادات", false);
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-check2-circle me-1"></i> حفظ وفصل الحساب';
+            }
+        }
+    }
+
+    async function deleteStaffMember(id, name) {
+        if (!id) return;
+        const confirmed = confirm(`هل أنت متأكد من رغبتك في حذف الموظف (${name}) نهائياً من قاعدة بيانات Supabase؟ لا يمكن التراجع عن هذا الإجراء.`);
+        if (!confirmed) return;
+
+        try {
+            const row = document.getElementById(`staff-row-${id}`);
+            if (row) {
+                row.style.opacity = '0.5';
+                row.style.pointerEvents = 'none';
+            }
+
+            const formData = new URLSearchParams();
+            formData.append('id', id);
+
+            const res = await fetch('/Doctor/Dashboard?handler=DeleteStaff', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: formData.toString()
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                showToastNotification(data.message || `تم حذف الموظف (${name}) بنجاح.`);
+                if (row) {
+                    row.remove();
+                }
+                const counter = document.getElementById('totalStaffCountText');
+                if (counter) {
+                    const remaining = document.querySelectorAll('#staffTableBody tr[id^="staff-row-"]').length;
+                    counter.textContent = `${remaining} موظف`;
+                }
+            } else {
+                if (row) {
+                    row.style.opacity = '1';
+                    row.style.pointerEvents = 'auto';
+                }
+                showToastNotification(data.message || 'تعذر حذف الموظف من قاعدة البيانات', false);
+            }
+        } catch (err) {
+            console.error('Error deleting staff:', err);
+            const row = document.getElementById(`staff-row-${id}`);
+            if (row) {
+                row.style.opacity = '1';
+                row.style.pointerEvents = 'auto';
+            }
+            showToastNotification('حدث خطأ في الاتصال أثناء حذف الموظف', false);
+        }
+    }
+
+    async function handleStaffSubmit(event) {
+        event.preventDefault();
+        const form = event.target;
+        const name = (form.name?.value || '').trim();
+        const role = (form.role?.value || '').trim();
+        const phone = (form.phone?.value || '').trim();
+
+        if (!name || !phone) {
+            showToastNotification('يرجى ملء جميع الحقول المطلوبة.', false);
+            return;
+        }
+
+        const saveBtn = document.getElementById('saveStaffBtn');
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> جاري الحفظ في Supabase...';
+        }
+
+        try {
+            const formData = new URLSearchParams();
+            formData.append('name', name);
+            formData.append('role', role);
+            formData.append('phone', phone);
+
+            const res = await fetch('/Doctor/Dashboard?handler=AddStaff', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: formData.toString()
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                showToastNotification(data.message || 'تمت إضافة الموظف وتفعيله في قاعدة البيانات بنجاح.');
+                const modalEl = document.getElementById('addStaffModal');
+                if (modalEl && typeof bootstrap !== 'undefined') {
+                    const modalInst = bootstrap.Modal.getInstance(modalEl);
+                    if (modalInst) modalInst.hide();
+                }
+                form.reset();
+                setTimeout(() => {
+                    window.location.hash = 'staff';
+                    window.location.reload();
+                }, 600);
+            } else {
+                showToastNotification(data.message || 'تعذر حفظ الموظف في Supabase', false);
+            }
+        } catch (err) {
+            console.error('Error adding staff:', err);
+            showToastNotification('حدث خطأ أثناء حفظ الموظف في Supabase', false);
+        } finally {
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = '<i class="bi bi-save me-1"></i> حفظ وتفعيل في Supabase';
+            }
+        }
+    }
+
+    function initSupabaseRealtime() {
+        try {
+            if (typeof supabase === 'undefined') return;
+            const supabaseUrl = '<%= (typeof supabaseUrl !== "undefined" && supabaseUrl) ? supabaseUrl : (process.env.SUPABASE_URL || "https://uwyyntbsvhqmrlthmgvn.supabase.co") %>';
+            const supabaseKey = '<%= (typeof supabaseKey !== "undefined" && supabaseKey) ? supabaseKey : (process.env.SUPABASE_ANON_KEY || "sb_publishable_MJntq3aqg2RNwM9cpqoeXQ_-oU2bIfr") %>';
+
+            const client = supabase.createClient(supabaseUrl, supabaseKey);
+            client.channel('public:Staff:changes')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'Staff' }, payload => {
+                    console.log('Realtime change detected in Staff table:', payload);
+                    showToastNotification('تم تحديث بيانات طاقم المركز لحظياً من قاعدة البيانات.');
+                    setTimeout(() => location.reload(), 800);
+                })
+                .subscribe();
+
+            client.channel('public:Doctors:changes')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'Doctors' }, payload => {
+                    setTimeout(() => location.reload(), 800);
+                })
+                .subscribe();
+        } catch (e) {
+            console.log('Realtime sync initialized in polling mode');
+        }
+    }
+
 
     function showToastNotification(message, isSuccess = true) {
         let toastEl = document.getElementById("actionToast");
@@ -5799,298 +8853,174 @@ export class WhatsAppNotificationService {
         }
     }
 
-    <!-- ================================================================ -->
-    <!-- Management Quick Action Modals (Sidebar Integration)              -->
-    <!-- ================================================================ -->
 
-    <!-- 1. Prescriptions & Dental Labs Modal -->
-    <div class="modal fade" id="prescriptions-modal" tabindex="-1" aria-labelledby="prescriptionsModalLabel" aria-hidden="true" dir="rtl">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content border-0 shadow-lg rounded-4">
-                <div class="modal-header border-bottom py-3 bg-light rounded-top-4">
-                    <h5 class="modal-title fw-bold text-dark d-flex align-items-center gap-2" id="prescriptionsModalLabel">
-                        <i class="bi bi-capsule text-primary fs-4"></i> الروشتات الطبية وطلبات معامل التركيبات
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body p-4">
-                    <div class="row g-3 mb-4">
-                        <div class="col-md-6">
-                            <div class="p-3 border rounded-3 bg-light h-100">
-                                <h6 class="fw-bold text-primary mb-2"><i class="bi bi-file-earmark-medical me-1"></i> تحرير روشتة إلكترونية سريعة</h6>
-                                <p class="text-muted small mb-3">طباعة أو إرسال روشتة دوائية موثقة لمريض المركز مباشرة عبر الواتساب.</p>
-                                <div class="mb-2">
-                                    <label class="form-label small fw-semibold">اختر المريض:</label>
-                                    <select class="form-select form-select-sm">
-                                        <% if (typeof recentBookings !== 'undefined' && recentBookings) { %>
-                                            <% recentBookings.slice(0, 5).forEach(b => { %>
-                                                <option><%= b.patient_name %> (<%= b.reference %>)</option>
-                                            <% }) %>
-                                        <% } %>
-                                    </select>
-                                </div>
-                                <div class="mb-2">
-                                    <label class="form-label small fw-semibold">الأدوية الموصوفة والجرعات:</label>
-                                    <textarea class="form-control form-control-sm" rows="3" placeholder="مثال: مضاد حيوي أوجمنتين 1 جم كل 12 ساعة، مسكن كتافلام..."></textarea>
-                                </div>
-                                <button type="button" class="btn btn-primary btn-sm w-100 rounded-pill" onclick="alert('تم حفظ الروشتة وإتاحتها فورياً في بوابة المريض.')">
-                                    <i class="bi bi-printer me-1"></i> حفظ وطباعة الروشتة
-                                </button>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="p-3 border rounded-3 bg-light h-100">
-                                <h6 class="fw-bold text-secondary mb-2"><i class="bi bi-tools me-1"></i> متابعة طلبات معامل الأسنان (Dental Labs)</h6>
-                                <p class="text-muted small mb-2">تتبع حالات التركيبات، التيجان (Zirconia/E-max)، وأجهزة التقويم.</p>
-                                <ul class="list-group list-group-flush small mb-3">
-                                    <li class="list-group-item d-flex justify-content-between align-items-center bg-transparent px-0">
-                                        <span>تاج زيركونيا (Zirconia Crown) - د. حازم</span>
-                                        <span class="badge bg-warning text-dark">قيد التصنيع</span>
-                                    </li>
-                                    <li class="list-group-item d-flex justify-content-between align-items-center bg-transparent px-0">
-                                        <span>طقم أسنان جزئي فينير (Veneers 6 Units)</span>
-                                        <span class="badge bg-info-subtle text-info-emphasis">معمل الماسة</span>
-                                    </li>
-                                    <li class="list-group-item d-flex justify-content-between align-items-center bg-transparent px-0">
-                                        <span>جهاز مثبت تقويم شفاف (Clear Retainer)</span>
-                                        <span class="badge bg-success">جاهز للتسليم</span>
-                                    </li>
-                                </ul>
-                                <button type="button" class="btn btn-outline-secondary btn-sm w-100 rounded-pill" onclick="alert('تم فتح سجل التواصل مع المعمل.')">
-                                    <i class="bi bi-plus-circle me-1"></i> إضافة طلب معمل جديد
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+    // ========================================================
+    // Patient Bookings Search & Filter & Modal Management
+    // ========================================================
+    function filterPatientBookings() {
+        const searchInput = document.getElementById("patientBookingSearchInput");
+        const statusFilter = document.getElementById("patientBookingStatusFilter");
+        const query = searchInput ? searchInput.value.trim().toLowerCase() : "";
+        const status = statusFilter ? statusFilter.value : "";
+        
+        const rows = document.querySelectorAll("#patientsBookingTable tbody tr.patient-booking-row");
+        const noResultsRow = document.getElementById("noPatientsFoundRow");
+        let visibleCount = 0;
 
-    <!-- 2. Billing & Finance Modal -->
-    <div class="modal fade" id="finance-modal" tabindex="-1" aria-labelledby="financeModalLabel" aria-hidden="true" dir="rtl">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content border-0 shadow-lg rounded-4">
-                <div class="modal-header border-bottom py-3 bg-light rounded-top-4">
-                    <h5 class="modal-title fw-bold text-dark d-flex align-items-center gap-2" id="financeModalLabel">
-                        <i class="bi bi-receipt-cutoff text-success fs-4"></i> الخزينة، الفواتير، وحسابات الدفعات
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body p-4">
-                    <div class="row g-3 mb-3">
-                        <div class="col-sm-4">
-                            <div class="p-3 border rounded-3 bg-success-subtle text-success text-center">
-                                <span class="small fw-semibold d-block">متحصلات الخزينة اليوم</span>
-                                <h4 class="fw-bold my-1">EGP 14,850</h4>
-                                <span class="small text-muted">كاش + إنستاباي + بطاقات</span>
-                            </div>
-                        </div>
-                        <div class="col-sm-4">
-                            <div class="p-3 border rounded-3 bg-primary-subtle text-primary text-center">
-                                <span class="small fw-semibold d-block">إجمالي الفواتير الصادرة</span>
-                                <h4 class="fw-bold my-1"><%= recentBookings ? recentBookings.length : 0 %> فاتورة</h4>
-                                <span class="small text-muted">خلال الشهر الحالي</span>
-                            </div>
-                        </div>
-                        <div class="col-sm-4">
-                            <div class="p-3 border rounded-3 bg-warning-subtle text-warning-emphasis text-center">
-                                <span class="small fw-semibold d-block">دفعات وأقساط مستحقة</span>
-                                <h4 class="fw-bold my-1">EGP 3,200</h4>
-                                <span class="small text-muted">تقويم وزراعة أسنان</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="table-responsive">
-                        <table class="table table-sm table-hover align-middle mb-0">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>رقم الفاتورة</th>
-                                    <th>المريض</th>
-                                    <th>الخدمة الطبية</th>
-                                    <th>المبلغ</th>
-                                    <th>طريقة السداد</th>
-                                    <th>الحالة</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td class="font-monospace fw-bold">#INV-2026-089</td>
-                                    <td>أحمد محمود السيد</td>
-                                    <td>تنظيف وتلميع الأسنان</td>
-                                    <td class="fw-bold">450 ج.م</td>
-                                    <td>كاش (نقد)</td>
-                                    <td><span class="badge bg-success">مدفوع</span></td>
-                                </tr>
-                                <tr>
-                                    <td class="font-monospace fw-bold">#INV-2026-088</td>
-                                    <td>سارة إبراهيم علي</td>
-                                    <td>حشو ليزر تجميلي عالي الدقة</td>
-                                    <td class="fw-bold">850 ج.م</td>
-                                    <td>InstaPay</td>
-                                    <td><span class="badge bg-success">مدفوع</span></td>
-                                </tr>
-                                <tr>
-                                    <td class="font-monospace fw-bold">#INV-2026-087</td>
-                                    <td>محمد عبد العزيز</td>
-                                    <td>دفعة أولى - تقويم الأسنان</td>
-                                    <td class="fw-bold">3,500 ج.م</td>
-                                    <td>فيزا / بطاقة بنكية</td>
-                                    <td><span class="badge bg-primary">مؤكد</span></td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+        rows.forEach(row => {
+            const name = (row.getAttribute("data-patient-name") || "").toLowerCase();
+            const phone = (row.getAttribute("data-patient-phone") || "").toLowerCase();
+            const ref = (row.getAttribute("data-patient-ref") || "").toLowerCase();
+            const doctor = (row.getAttribute("data-doctor") || "").toLowerCase();
+            const service = (row.getAttribute("data-service") || "").toLowerCase();
+            const rowStatus = row.getAttribute("data-status") || "";
 
-    <!-- 3. Inventory Modal -->
-    <div class="modal fade" id="inventory-modal" tabindex="-1" aria-labelledby="inventoryModalLabel" aria-hidden="true" dir="rtl">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content border-0 shadow-lg rounded-4">
-                <div class="modal-header border-bottom py-3 bg-light rounded-top-4">
-                    <h5 class="modal-title fw-bold text-dark d-flex align-items-center gap-2" id="inventoryModalLabel">
-                        <i class="bi bi-box-seam text-info fs-4"></i> مخزن المستلزمات الطبية ومواد الحشو
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body p-4">
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle mb-0">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>المادة الطبية / الصنف</th>
-                                    <th>التصنيف</th>
-                                    <th>الكمية المتاحة</th>
-                                    <th>تاريخ الصلاحية</th>
-                                    <th>حالة المخزون</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td class="fw-semibold">بنج موضعي (Articaine 4% Dental)</td>
-                                    <td>تخدير موضعي</td>
-                                    <td class="fw-bold font-monospace">48 كربولة</td>
-                                    <td>12/2027</td>
-                                    <td><span class="badge bg-success">آمن</span></td>
-                                </tr>
-                                <tr>
-                                    <td class="fw-semibold">حشوات تجميلية كومبوزيت (3M Filtek)</td>
-                                    <td>حشو تجميلي</td>
-                                    <td class="fw-bold font-monospace">8 محاقن</td>
-                                    <td>08/2028</td>
-                                    <td><span class="badge bg-success">آمن</span></td>
-                                </tr>
-                                <tr>
-                                    <td class="fw-semibold">أكواب وقفازات طبية معقمة (Latex-free)</td>
-                                    <td>مستهلكات عامة</td>
-                                    <td class="fw-bold font-monospace">3 علب</td>
-                                    <td>05/2026</td>
-                                    <td><span class="badge bg-warning text-dark">أوشك على النفاد</span></td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+            const matchesQuery = !query || name.includes(query) || phone.includes(query) || ref.includes(query) || doctor.includes(query) || service.includes(query);
+            const matchesStatus = !status || rowStatus === status;
 
-    <!-- 4. Reports Modal -->
-    <div class="modal fade" id="reports-modal" tabindex="-1" aria-labelledby="reportsModalLabel" aria-hidden="true" dir="rtl">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content border-0 shadow-lg rounded-4">
-                <div class="modal-header border-bottom py-3 bg-light rounded-top-4">
-                    <h5 class="modal-title fw-bold text-dark d-flex align-items-center gap-2" id="reportsModalLabel">
-                        <i class="bi bi-graph-up-arrow text-primary fs-4"></i> التقارير والإحصائيات التحليلية
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body p-4 text-center">
-                    <div class="row g-3 mb-4 text-start">
-                        <div class="col-md-4">
-                            <div class="p-3 border rounded-3 bg-light text-center">
-                                <h6 class="text-muted small">معدل رضا المرضى</h6>
-                                <h3 class="fw-bold text-success mb-0">98.5%</h3>
-                                <small class="text-muted">بناءً على 120 تقييماً</small>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="p-3 border rounded-3 bg-light text-center">
-                                <h6 class="text-muted small">أكثر الخدمات طلباً</h6>
-                                <h3 class="fw-bold text-primary mb-0">حشو وتجميل</h3>
-                                <small class="text-muted">42% من الحجوزات</small>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="p-3 border rounded-3 bg-light text-center">
-                                <h6 class="text-muted small">الحجوزات الإلكترونية</h6>
-                                <h3 class="fw-bold text-dark mb-0">100%</h3>
-                                <small class="text-muted">مسجلة عبر المنظومة</small>
-                            </div>
-                        </div>
-                    </div>
-                    <button type="button" class="btn btn-primary rounded-pill px-4" onclick="window.print()">
-                        <i class="bi bi-printer me-1"></i> طباعة التقرير الشامل لعيادات دينتال سيتي
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
+            if (matchesQuery && matchesStatus) {
+                row.style.display = "";
+                visibleCount++;
+            } else {
+                row.style.display = "none";
+            }
+        });
 
-    <!-- 5. Staff & Roles Modal -->
-    <div class="modal fade" id="staff-modal" tabindex="-1" aria-labelledby="staffModalLabel" aria-hidden="true" dir="rtl">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content border-0 shadow-lg rounded-4">
-                <div class="modal-header border-bottom py-3 bg-light rounded-top-4">
-                    <h5 class="modal-title fw-bold text-dark d-flex align-items-center gap-2" id="staffModalLabel">
-                        <i class="bi bi-people-fill text-dark fs-4"></i> الموظفين وإدارة الصلاحيات
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body p-4">
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle mb-0">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>الاسم</th>
-                                    <th>الدور الوظيفي</th>
-                                    <th>البريد / اسم الدخول</th>
-                                    <th>الصلاحيات</th>
-                                    <th>الحالة</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td class="fw-bold">د. حازم حجاج</td>
-                                    <td><span class="badge bg-primary">مدير طبي / أخصائي</span></td>
-                                    <td>admin</td>
-                                    <td>كامل الصلاحيات (Admin)</td>
-                                    <td><span class="badge bg-success">نشط</span></td>
-                                </tr>
-                                <tr>
-                                    <td class="fw-bold">د. سارة إبراهيم</td>
-                                    <td><span class="badge bg-info-subtle text-info-emphasis">طبيبة أسنان</span></td>
-                                    <td>dr_sara</td>
-                                    <td>الكشف والملفات الطبية والروشتات</td>
-                                    <td><span class="badge bg-success">نشط</span></td>
-                                </tr>
-                                <tr>
-                                    <td class="fw-bold">أ/ مروة محمود</td>
-                                    <td><span class="badge bg-secondary">موظفة استقبال</span></td>
-                                    <td>reception</td>
-                                    <td>تأكيد الحجوزات والخزينة</td>
-                                    <td><span class="badge bg-success">نشط</span></td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+        const countBadge = document.getElementById("patientSearchResultCount");
+        if (countBadge) {
+            countBadge.textContent = `${visibleCount} من أصل ${rows.length}`;
+        }
+
+        if (noResultsRow) {
+            if (visibleCount === 0 && rows.length > 0) {
+                noResultsRow.classList.remove("d-none");
+            } else {
+                noResultsRow.classList.add("d-none");
+            }
+        }
+    }
+
+    function clearPatientSearch() {
+        const searchInput = document.getElementById("patientBookingSearchInput");
+        const statusFilter = document.getElementById("patientBookingStatusFilter");
+        if (searchInput) searchInput.value = "";
+        if (statusFilter) statusFilter.value = "";
+        filterPatientBookings();
+    }
+
+    function openPatientDetailsModal(btn) {
+        if (!btn) return;
+        const name = btn.getAttribute("data-name") || "-";
+        const phone = btn.getAttribute("data-phone") || "-";
+        const ref = btn.getAttribute("data-ref") || "-";
+        const doctor = btn.getAttribute("data-doctor") || "-";
+        const specialty = btn.getAttribute("data-specialty") || "-";
+        const service = btn.getAttribute("data-service") || "-";
+        const date = btn.getAttribute("data-date") || "-";
+        const time = btn.getAttribute("data-time") || "-";
+        const shift = btn.getAttribute("data-shift") || "-";
+        const status = btn.getAttribute("data-status") || "-";
+        const notes = btn.getAttribute("data-notes") || "لا توجد ملاحظات إضافية";
+
+        const pmName = document.getElementById("pmPatientName");
+        const pmAvatar = document.getElementById("pmAvatar");
+        const pmRef = document.getElementById("pmReference");
+        const pmPhone = document.getElementById("pmPatientPhone");
+        const pmDoctor = document.getElementById("pmDoctorName");
+        const pmSpecialty = document.getElementById("pmSpecialty");
+        const pmService = document.getElementById("pmServiceName");
+        const pmDateTime = document.getElementById("pmDateTime");
+        const pmShift = document.getElementById("pmShiftType");
+        const pmNotes = document.getElementById("pmPatientNotes");
+        const pmWhatsapp = document.getElementById("pmWhatsappBtn");
+        const pmStatusBadge = document.getElementById("pmStatusBadge");
+
+        if (pmName) pmName.textContent = name;
+        if (pmAvatar) pmAvatar.textContent = name.charAt(0) || "م";
+        if (pmRef) pmRef.textContent = ref;
+        if (pmPhone) pmPhone.textContent = phone;
+        if (pmDoctor) pmDoctor.textContent = doctor;
+        if (pmSpecialty) pmSpecialty.textContent = specialty;
+        if (pmService) pmService.textContent = service;
+        if (pmDateTime) pmDateTime.textContent = `${date} | ${time}`;
+        if (pmShift) pmShift.textContent = `الوردية: ${shift}`;
+        if (pmNotes) pmNotes.textContent = notes;
+
+        if (pmWhatsapp) {
+            const cleanPhone = phone.replace(/[^0-9]/g, '');
+            pmWhatsapp.href = `https://wa.me/20${cleanPhone.startsWith('0') ? cleanPhone.substring(1) : cleanPhone}`;
+        }
+
+        if (pmStatusBadge) {
+            pmStatusBadge.className = 'badge fs-6 px-3 py-2 rounded-pill';
+            if (status === 'Confirmed' || status === 'مؤكد') {
+                pmStatusBadge.classList.add('bg-success');
+                pmStatusBadge.textContent = 'مؤكد';
+            } else if (status === 'Pending' || status === 'معلق' || status === 'قيد الانتظار') {
+                pmStatusBadge.classList.add('bg-warning', 'text-dark');
+                pmStatusBadge.textContent = 'قيد الانتظار';
+            } else if (status === 'Completed' || status === 'مكتمل') {
+                pmStatusBadge.classList.add('bg-primary');
+                pmStatusBadge.textContent = 'مكتمل';
+            } else if (status === 'Cancelled' || status === 'ملغي') {
+                pmStatusBadge.classList.add('bg-danger');
+                pmStatusBadge.textContent = 'ملغي';
+            } else {
+                pmStatusBadge.classList.add('bg-secondary');
+                pmStatusBadge.textContent = status;
+            }
+        }
+
+        const modalEl = document.getElementById("patientDetailsModal");
+        if (modalEl) {
+            const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+            modal.show();
+        }
+    }
+
+    async function updatePatientBookingStatusAjax(selectEl, bookingRef) {
+        if (!selectEl || !bookingRef) return;
+        const newStatus = selectEl.value;
+        const prevStatus = selectEl.getAttribute("data-current-status") || selectEl.value;
+
+        try {
+            selectEl.disabled = true;
+            const res = await fetch("/Doctor/Dashboard", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    "X-Requested-With": "XMLHttpRequest"
+                },
+                body: new URLSearchParams({
+                    action: "UpdateBookingStatus",
+                    bookingRef: bookingRef,
+                    newStatus: newStatus
+                })
+            });
+
+            if (res.ok) {
+                selectEl.setAttribute("data-current-status", newStatus);
+                const row = selectEl.closest("tr");
+                if (row) row.setAttribute("data-status", newStatus);
+                if (typeof showToast === 'function') {
+                    showToast("تم تحديث حالة الحجز بنجاح", "success");
+                }
+            } else {
+                selectEl.value = prevStatus;
+                if (typeof showToast === 'function') {
+                    showToast("تعذر تحديث حالة الحجز", "danger");
+                }
+            }
+        } catch (err) {
+            console.error(err);
+            selectEl.value = prevStatus;
+            if (typeof showToast === 'function') {
+                showToast("حدث خطأ أثناء الاتصال بالخادم", "danger");
+            }
+        } finally {
+            selectEl.disabled = false;
+        }
+    }
 
     function filterBookingsTable() {
         const query = document.getElementById("bookingSearchInput").value.toLowerCase();
@@ -6101,11 +9031,47 @@ export class WhatsAppNotificationService {
         });
     }
 
+
+
+
     // Persist active tab across actions and refreshes
+
+    /* Global Delegated Doctor Modals Click Handler */
+    document.addEventListener("click", function (e) {
+        const editBtn = e.target.closest(".edit-doctor-action-btn");
+        if (editBtn) {
+            e.preventDefault();
+            e.stopPropagation();
+            openEditDoctorModalFromButton(editBtn);
+            return;
+        }
+        const schedBtn = e.target.closest(".schedule-doctor-action-btn, .doctor-schedule-box");
+        if (schedBtn) {
+            e.preventDefault();
+            e.stopPropagation();
+            openDoctorScheduleModalFromButton(schedBtn);
+            return;
+        }
+        const permBtn = e.target.closest(".permissions-doctor-action-btn, .permissions-staff-action-btn");
+        if (permBtn) {
+            e.preventDefault();
+            e.stopPropagation();
+            openPermissionsModalFromButton(permBtn);
+            return;
+        }
+    });
+
     document.addEventListener("DOMContentLoaded", () => {
-        const hash = window.location.hash || localStorage.getItem("activeDoctorDashboardTab");
-        if (hash) {
-            const targetTab = document.querySelector(`button[data-bs-target="${hash}"]`);
+        initSupabaseRealtime();
+
+
+
+        const rawHash = window.location.hash || localStorage.getItem("activeDoctorDashboardTab") || "";
+        if (rawHash) {
+            let targetTab = document.querySelector(`button[data-bs-target="${rawHash}"]`);
+            if (!targetTab && !rawHash.endsWith('-panel')) {
+                targetTab = document.querySelector(`button[data-bs-target="${rawHash}-panel"]`);
+            }
             if (targetTab) {
                 bootstrap.Tab.getOrCreateInstance(targetTab).show();
             }
@@ -6115,14 +9081,19 @@ export class WhatsAppNotificationService {
             tab.addEventListener('shown.bs.tab', (e) => {
                 const target = e.target.getAttribute('data-bs-target');
                 if (target) {
-                    history.replaceState(null, null, target);
-                    localStorage.setItem("activeDoctorDashboardTab", target);
+                    const cleanHash = target.replace('-panel', '');
+                    history.replaceState(null, null, cleanHash);
+                    localStorage.setItem("activeDoctorDashboardTab", cleanHash);
+                    if (typeof window.syncSidebarWithCurrentTab === 'function') {
+                        window.syncSidebarWithCurrentTab(cleanHash);
+                    }
                 }
             });
         });
     });
 </script>
 
+`
 ````
 
 ---
@@ -6171,7 +9142,7 @@ export class WhatsAppNotificationService {
             <i class="bi bi-shield-check text-primary me-2"></i> سياسة الخصوصية وسرية البيانات
         </h2>
         <p class="lead text-muted mb-4">
-            في مركز دينتال سيتي (Dental City)، نولي سرية وخصوصية بيانات مرضانا الكرام أهمية قصوى.
+            في <span class="text-primary fw-bold">مركز دينتال سيتي</span> (Dental City Center)، نولي سرية وخصوصية بيانات مرضانا الكرام أهمية قصوى.
         </p>
 
         <h5 class="fw-bold text-dark mt-4">1. البيانات التي نجمعها</h5>

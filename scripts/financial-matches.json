@@ -1,0 +1,107 @@
+[
+  {
+    "line": 13,
+    "term": "Revenue",
+    "text": "let totalEstimatedRevenue = 0;"
+  },
+  {
+    "line": 17,
+    "term": "Revenue",
+    "text": "totalEstimatedRevenue += (s && s.price) ? Number(s.price) : 350;"
+  },
+  {
+    "line": 468,
+    "term": "مالي",
+    "text": "متابعة حية لحركة الحجوزات اليومية، طلبات الانتظار العاجلة، والمؤشرات المالية والتشغيلية المعتمدة."
+  },
+  {
+    "line": 492,
+    "term": "مالي",
+    "text": "<div class=\"overview-kpi-title\">إجمالي الحجوزات الطبية</div>"
+  },
+  {
+    "line": 534,
+    "term": "إيراد",
+    "text": "<div class=\"overview-kpi-title\">الإيراد التقديري للحجوزات</div>"
+  },
+  {
+    "line": 534,
+    "term": "تقدير",
+    "text": "<div class=\"overview-kpi-title\">الإيراد التقديري للحجوزات</div>"
+  },
+  {
+    "line": 535,
+    "term": "Revenue",
+    "text": "<div class=\"overview-kpi-value text-success\"><%= totalEstimatedRevenue.toLocaleString('ar-EG') %> ج.م</div>"
+  },
+  {
+    "line": 535,
+    "term": "ج.م",
+    "text": "<div class=\"overview-kpi-value text-success\"><%= totalEstimatedRevenue.toLocaleString('ar-EG') %> ج.م</div>"
+  },
+  {
+    "line": 538,
+    "term": "ج.م",
+    "text": "<span class=\"fw-bold\"><%= avgConsultationFee %> ج.م</span>"
+  },
+  {
+    "line": 624,
+    "term": "ج.م",
+    "text": "<span class=\"badge bg-light text-dark border font-monospace fw-bold\"><%= srv.price || 350 %> ج.م</span>"
+  },
+  {
+    "line": 795,
+    "term": "مالي",
+    "text": "<span class=\"small fw-semibold text-muted\">إجمالي المرضى والحجوزات</span>"
+  },
+  {
+    "line": 1202,
+    "term": "مالي",
+    "text": "<span class=\"text-muted small d-block\">إجمالي الكادر</span>"
+  },
+  {
+    "line": 2105,
+    "term": "مالي",
+    "text": "<option value=\"Accountant\">محاسب ومسؤول مالي (Accountant)</option>"
+  },
+  {
+    "line": 2153,
+    "term": "مالي",
+    "text": "والتقارير المالية</label>"
+  },
+  {
+    "line": 2323,
+    "term": "EGP",
+    "text": "<h4 class=\"fw-bold my-1\">EGP 14,850</h4>"
+  },
+  {
+    "line": 2329,
+    "term": "مالي",
+    "text": "<span class=\"small fw-semibold d-block\">إجمالي الفواتير الصادرة</span>"
+  },
+  {
+    "line": 2339,
+    "term": "EGP",
+    "text": "<h4 class=\"fw-bold my-1\">EGP 3,200</h4>"
+  },
+  {
+    "line": 2361,
+    "term": "ج.م",
+    "text": "<td class=\"fw-bold\">450 ج.م</td>"
+  },
+  {
+    "line": 2369,
+    "term": "ج.م",
+    "text": "<td class=\"fw-bold\">850 ج.م</td>"
+  },
+  {
+    "line": 2377,
+    "term": "ج.م",
+    "text": "<td class=\"fw-bold\">3,500 ج.م</td>"
+  },
+  {
+    "line": 3332,
+    "term": "مالي",
+    "text": "if (totalBadge) totalBadge.textContent = `${morningSlots.length + eveningSlots.length} مواعيد إجمالية`;"
+  }
+]

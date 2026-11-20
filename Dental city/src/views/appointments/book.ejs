@@ -136,6 +136,14 @@
         box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08);
     }
 
+    [data-bs-theme="dark"] .summary-card,
+    [data-theme="dark"] .summary-card,
+    body.dark-mode .summary-card {
+        background: #1e293b !important;
+        border-color: #334155 !important;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4) !important;
+    }
+
     .summary-item {
         display: flex;
         justify-content: space-between;
@@ -145,13 +153,31 @@
         font-size: 0.92rem;
     }
 
+    [data-bs-theme="dark"] .summary-item,
+    [data-theme="dark"] .summary-item,
+    body.dark-mode .summary-item {
+        border-bottom-color: #334155 !important;
+    }
+
     .summary-label {
         color: #64748b;
+    }
+
+    [data-bs-theme="dark"] .summary-label,
+    [data-theme="dark"] .summary-label,
+    body.dark-mode .summary-label {
+        color: #94a3b8 !important;
     }
 
     .summary-value {
         font-weight: 600;
         color: #0f172a;
+    }
+
+    [data-bs-theme="dark"] .summary-value,
+    [data-theme="dark"] .summary-value,
+    body.dark-mode .summary-value {
+        color: #f8fafc !important;
     }
 
     .btn-submit-booking {
@@ -183,7 +209,7 @@
                 حجز موعد عيادة الأسنان
             </h1>
             <p class="mb-0 text-white-50 fs-6">
-                مرحباً بك في مركز دينتال سيتي (Dental City). يرجى تعبئة بيانات المريض واختيار الطبيب والموعد المناسب لإتمام الحجز بكل سهولة.
+                مرحباً بك في <span class="text-primary fw-bold">مركز دينتال سيتي</span> (Dental City Center). يرجى تعبئة بيانات المريض واختيار الطبيب والموعد المناسب لإتمام الحجز بكل سهولة.
             </p>
         </div>
         <div class="mt-3 mt-md-0">

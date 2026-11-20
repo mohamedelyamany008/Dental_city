@@ -29,6 +29,6 @@ indexRoutes.get('/', async (_req: Request, res: Response) => {
 
 indexRoutes.get('/Privacy', (_req: Request, res: Response) => {
   return res.render('privacy', {
-    title: 'سياسة الخصوصية - دينتال سيتي'
+    title: 'سياسة الخصوصية - مركز دينتال سيتي'
   });
 });

@@ -19,6 +19,7 @@
 
   const doctorsCount = (typeof doctors !== 'undefined' && doctors && Array.isArray(doctors)) ? doctors.length : 0;
   const servicesCount = (typeof services !== 'undefined' && services && Array.isArray(services)) ? services.length : 0;
+  const patientsCount = (typeof recentBookings !== 'undefined' && recentBookings && Array.isArray(recentBookings)) ? recentBookings.length : 0;
 %>
 
 <!-- Mobile Slide-Over Backdrop Overlay -->
@@ -28,10 +29,10 @@
 <aside class="app-sidebar" id="appSidebar" dir="rtl">
   <!-- Top Branding Header -->
   <div class="sidebar-header">
-    <a href="/" class="sidebar-brand" title="الرئيسية - دينتال سيتي">
+    <a href="/" class="sidebar-brand" title="الرئيسية - مركز دينتال سيتي">
       <img src="/images/logo.png" alt="Dental City Logo" class="sidebar-logo" onerror="this.onerror=null;this.src='/images/logo.png.jpg';" />
       <div class="sidebar-brand-text">
-        <span class="sidebar-brand-title">مركز <span class="text-primary">دينتال سيتي</span></span>
+        <span class="sidebar-brand-title text-primary fw-bold fs-5">مركز دينتال سيتي</span>
         <span class="sidebar-brand-subtitle">
           <i class="bi bi-shield-check me-1"></i><%= isPatient ? 'بوابة المريض الإلكترونية' : 'لوحة إدارة العيادات' %>
         </span>
@@ -61,9 +62,9 @@
       <span class="sidebar-status-dot" title="متصل الآن"></span>
     </div>
     <div class="sidebar-user-info">
-      <span class="sidebar-user-name" title="<%= userName %>"><%= userName %></span>
-      <span class="sidebar-user-role">
-        <i class="bi <%= isPatient ? 'bi-person-heart' : 'bi-patch-check-fill text-primary' %>"></i>
+      <span class="sidebar-user-name text-primary fw-bold" style="color: var(--dc-primary, #0284c7) !important;" title="<%= userName %>"><%= userName %></span>
+      <span class="sidebar-user-role text-primary" style="color: var(--dc-primary, #0284c7) !important;">
+        <i class="bi <%= isPatient ? 'bi-person-heart' : 'bi-patch-check-fill' %>" style="color: var(--dc-primary, #0284c7) !important;"></i>
         <%= userRoleTitle %>
       </span>
     </div>
@@ -81,14 +82,25 @@
         <i class="bi bi-hospital-fill me-1 text-primary"></i> إدارة المركز والعيادات
       </div>
       <ul class="sidebar-menu">
-        <li class="sidebar-item <%= (activePath.startsWith('/Doctor/Dashboard') && !activePath.includes('#')) ? 'active' : '' %>">
-          <a href="/Doctor/Dashboard" class="sidebar-link <%= activePath === '/Doctor/Dashboard' ? 'active' : '' %>" 
-             title="لوحة التحكم والتحليلات" data-bs-toggle="tooltip" data-bs-placement="left">
+        <li class="sidebar-item <%= (activePath === '/Doctor/Dashboard' || activePath.includes('#overview')) ? 'active' : '' %>" id="sidebar-nav-overview">
+          <a href="/Doctor/Dashboard#overview" class="sidebar-link" data-dashboard-tab="overview-panel" 
+             title="لوحة القيادة والمؤشرات العامة" data-bs-toggle="tooltip" data-bs-placement="left">
             <span class="sidebar-icon"><i class="bi bi-speedometer2"></i></span>
             <span class="nav-text">لوحة التحكم</span>
           </a>
         </li>
-        <li class="sidebar-item">
+        <!-- Dedicated Patient Booking Management Module (Doctor/Staff Access) -->
+        <li class="sidebar-item <%= (activePath.includes('#patients')) ? 'active' : '' %>" id="sidebar-nav-patients">
+          <a href="/Doctor/Dashboard#patients" class="sidebar-link" data-dashboard-tab="patients-panel" 
+             title="بيانات وسجل حجوزات المرضى وقائمة الكشوفات" data-bs-toggle="tooltip" data-bs-placement="left">
+            <span class="sidebar-icon"><i class="bi bi-person-lines-fill"></i></span>
+            <span class="nav-text">بيانات حجوزات المرضى</span>
+            <% if (patientsCount > 0) { %>
+              <span class="badge bg-primary text-white border border-primary-subtle nav-badge"><%= patientsCount %></span>
+            <% } %>
+          </a>
+        </li>
+        <li class="sidebar-item <%= (activePath.includes('#doctors')) ? 'active' : '' %>" id="sidebar-nav-doctors">
           <a href="/Doctor/Dashboard#doctors" class="sidebar-link" data-dashboard-tab="doctors-panel" 
              title="الأطباء والتخصصات والمناوبات" data-bs-toggle="tooltip" data-bs-placement="left">
             <span class="sidebar-icon"><i class="bi bi-hospital"></i></span>
@@ -98,22 +110,15 @@
             <% } %>
           </a>
         </li>
-        <!-- Relocated: Services & Pricing entirely in Sidebar -->
-        <li class="sidebar-item">
+        <!-- Services Section in Sidebar (Renamed strictly to Services, no pricing) -->
+        <li class="sidebar-item <%= (activePath.includes('#services')) ? 'active' : '' %>" id="sidebar-nav-services">
           <a href="/Doctor/Dashboard#services" class="sidebar-link" data-dashboard-tab="services-panel" 
-             title="قائمة الخدمات وباقات الأسعار" data-bs-toggle="tooltip" data-bs-placement="left">
-            <span class="sidebar-icon"><i class="bi bi-tags-fill text-primary"></i></span>
-            <span class="nav-text fw-bold text-primary">الخدمات والأسعار</span>
+             title="قائمة الخدمات الطبية والتخصصات" data-bs-toggle="tooltip" data-bs-placement="left">
+            <span class="sidebar-icon"><i class="bi bi-tags-fill"></i></span>
+            <span class="nav-text">الخدمات</span>
             <% if (servicesCount > 0) { %>
               <span class="badge bg-primary-subtle text-primary border border-primary-subtle nav-badge"><%= servicesCount %></span>
             <% } %>
-          </a>
-        </li>
-        <li class="sidebar-item">
-          <a href="/Doctor/Dashboard#prescriptions" class="sidebar-link" data-dashboard-action="prescriptions-modal" 
-             title="الروشتات الطبية وطلبات معامل الأسنان" data-bs-toggle="tooltip" data-bs-placement="left">
-            <span class="sidebar-icon"><i class="bi bi-capsule"></i></span>
-            <span class="nav-text">الروشتات والمعامل</span>
           </a>
         </li>
       </ul>
@@ -124,19 +129,19 @@
       </div>
       <ul class="sidebar-menu">
         <!-- Dedicated Staff & Roles Management Section in Sidebar -->
-        <li class="sidebar-item">
+        <li class="sidebar-item <%= (activePath.includes('#staff')) ? 'active' : '' %>" id="sidebar-nav-staff">
           <a href="/Doctor/Dashboard#staff" class="sidebar-link" data-dashboard-tab="staff-panel" 
              title="إدارة الموظفين وتوزيع الصلاحيات" data-bs-toggle="tooltip" data-bs-placement="left">
             <span class="sidebar-icon"><i class="bi bi-people-fill text-success"></i></span>
-            <span class="nav-text fw-semibold">الموظفين والصلاحيات</span>
+            <span class="nav-text">الموظفين والصلاحيات</span>
             <span class="badge bg-success-subtle text-success nav-badge">إدارة</span>
           </a>
         </li>
         <!-- Two-Shift Schedule & Settings Configuration -->
-        <li class="sidebar-item">
+        <li class="sidebar-item <%= (activePath.includes('#settings')) ? 'active' : '' %>" id="sidebar-nav-settings">
           <a href="/Doctor/Dashboard#settings" class="sidebar-link" data-dashboard-tab="settings-panel" 
              title="إعدادات الورديتين وفاصل الساعة وسياسات المركز" data-bs-toggle="tooltip" data-bs-placement="left">
-            <span class="sidebar-icon"><i class="bi bi-gear-wide-connected text-dark"></i></span>
+            <span class="sidebar-icon"><i class="bi bi-gear-wide-connected"></i></span>
             <span class="nav-text">إعدادات المركز والورديات</span>
             <span class="badge bg-warning-subtle text-warning-emphasis nav-badge">ورديتان</span>
           </a>
@@ -201,19 +206,12 @@
         <i class="bi bi-heart-pulse-fill me-1 text-primary"></i> إدارة المواعيد والخدمات
       </div>
       <ul class="sidebar-menu">
-        <li class="sidebar-item <%= (activePath === '/Patient/Portal' || activePath === '/portal') ? 'active' : '' %>">
-          <a href="/Patient/Portal" class="sidebar-link <%= (activePath === '/Patient/Portal' || activePath === '/portal') ? 'active' : '' %>" 
-             title="لوحة حسابي الرئيسية" data-bs-toggle="tooltip" data-bs-placement="left">
-            <span class="sidebar-icon"><i class="bi bi-house-heart"></i></span>
-            <span class="nav-text">حسابي / الرئيسية</span>
-          </a>
-        </li>
         <!-- Exclusive Appointments Management for Patients -->
-        <li class="sidebar-item">
-          <a href="/Patient/Portal#appointments" class="sidebar-link" data-patient-tab="patient-appointments" 
-             title="سجل وإدارة حجوزاتي ومواعيدي السابقة والقادمة" data-bs-toggle="tooltip" data-bs-placement="left">
-            <span class="sidebar-icon"><i class="bi bi-calendar-check-fill text-primary"></i></span>
-            <span class="nav-text fw-bold text-primary">سجل وإدارة الحجوزات</span>
+        <li class="sidebar-item <%= (activePath === '/Patient/Portal' || activePath === '/portal' || activePath.startsWith('/Patient')) ? 'active' : '' %>">
+          <a href="/Patient/Portal" class="sidebar-link" data-patient-tab="patient-appointments" 
+             title="إدارة الحجوزات والمواعيد" data-bs-toggle="tooltip" data-bs-placement="left">
+            <span class="sidebar-icon"><i class="bi bi-calendar-check-fill"></i></span>
+            <span class="nav-text">إدارة الحجوزات والمواعيد</span>
             <span class="badge bg-primary text-white nav-badge">مواعيدي</span>
           </a>
         </li>
@@ -223,20 +221,6 @@
             <span class="sidebar-icon"><i class="bi bi-calendar2-plus"></i></span>
             <span class="nav-text">حجز موعد جديد</span>
             <span class="badge bg-success nav-badge">متاح الآن</span>
-          </a>
-        </li>
-        <li class="sidebar-item">
-          <a href="/Patient/Portal#records" class="sidebar-link" data-patient-tab="patient-records" 
-             title="السجل الطبي والروشتات والعلاج" data-bs-toggle="tooltip" data-bs-placement="left">
-            <span class="sidebar-icon"><i class="bi bi-file-earmark-medical"></i></span>
-            <span class="nav-text">السجل الطبي والروشتات</span>
-          </a>
-        </li>
-        <li class="sidebar-item">
-          <a href="/Patient/Portal#profile" class="sidebar-link" data-patient-tab="patient-profile" 
-             title="بيانات الملف الشخصي والتواصل" data-bs-toggle="tooltip" data-bs-placement="left">
-            <span class="sidebar-icon"><i class="bi bi-person-gear"></i></span>
-            <span class="nav-text">الملف الشخصي</span>
           </a>
         </li>
       </ul>
@@ -261,6 +245,17 @@
         </li>
       </ul>
     <% } %>
+  </div>
+
+  <!-- Sidebar Theme Switcher -->
+  <div class="sidebar-theme-wrapper border-top px-3 py-2">
+    <div class="d-flex align-items-center justify-content-between">
+      <span class="small fw-semibold d-flex align-items-center gap-2 text-muted">
+        <i class="bi bi-circle-half text-primary"></i>
+        <span class="sidebar-theme-caption">مظهر العرض</span>
+      </span>
+      <%- include('./theme-toggle', { idPrefix: 'sidebarThemeToggle', compact: false }) %>
+    </div>
   </div>
 
   <!-- Sidebar Footer: Public site link & Logout -->

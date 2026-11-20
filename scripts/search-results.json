@@ -1,0 +1,140 @@
+[
+  {
+    "file": "Dental city/src/views/doctor/dashboard.ejs",
+    "line": 414,
+    "term": "overview-panel",
+    "text": "<button class=\"nav-link active\" id=\"overview-tab\" data-bs-toggle=\"tab\" data-bs-target=\"#overview-panel\""
+  },
+  {
+    "file": "Dental city/src/views/doctor/dashboard.ejs",
+    "line": 422,
+    "term": "patients-panel",
+    "text": "<button class=\"nav-link\" id=\"patients-tab\" data-bs-toggle=\"tab\" data-bs-target=\"#patients-panel\""
+  },
+  {
+    "file": "Dental city/src/views/doctor/dashboard.ejs",
+    "line": 422,
+    "term": "patients-tab",
+    "text": "<button class=\"nav-link\" id=\"patients-tab\" data-bs-toggle=\"tab\" data-bs-target=\"#patients-panel\""
+  },
+  {
+    "file": "Dental city/src/views/doctor/dashboard.ejs",
+    "line": 445,
+    "term": "الخدمات والأسعار",
+    "text": "<i class=\"bi bi-tags me-1\"></i> الخدمات والأسعار (<%= services ? services.length : 0 %>)"
+  },
+  {
+    "file": "Dental city/src/views/doctor/dashboard.ejs",
+    "line": 445,
+    "term": "الأسعار",
+    "text": "<i class=\"bi bi-tags me-1\"></i> الخدمات والأسعار (<%= services ? services.length : 0 %>)"
+  },
+  {
+    "file": "Dental city/src/views/doctor/dashboard.ejs",
+    "line": 458,
+    "term": "overview-panel",
+    "text": "<div class=\"tab-pane fade show active\" id=\"overview-panel\" role=\"tabpanel\">"
+  },
+  {
+    "file": "Dental city/src/views/doctor/dashboard.ejs",
+    "line": 611,
+    "term": "توزيع الخدمات",
+    "text": "توزيع الخدمات الطبية وباقات الأسعار"
+  },
+  {
+    "file": "Dental city/src/views/doctor/dashboard.ejs",
+    "line": 611,
+    "term": "باقات الأسعار",
+    "text": "توزيع الخدمات الطبية وباقات الأسعار"
+  },
+  {
+    "file": "Dental city/src/views/doctor/dashboard.ejs",
+    "line": 611,
+    "term": "الأسعار",
+    "text": "توزيع الخدمات الطبية وباقات الأسعار"
+  },
+  {
+    "file": "Dental city/src/views/doctor/dashboard.ejs",
+    "line": 774,
+    "term": "patients-panel",
+    "text": "<div class=\"tab-pane fade\" id=\"patients-panel\" role=\"tabpanel\" aria-labelledby=\"patients-tab\">"
+  },
+  {
+    "file": "Dental city/src/views/doctor/dashboard.ejs",
+    "line": 774,
+    "term": "patients-tab",
+    "text": "<div class=\"tab-pane fade\" id=\"patients-panel\" role=\"tabpanel\" aria-labelledby=\"patients-tab\">"
+  },
+  {
+    "file": "Dental city/src/views/doctor/dashboard.ejs",
+    "line": 1365,
+    "term": "الخدمات والأسعار",
+    "text": "<!-- 3. تبويب الخدمات والأسعار (Services & Pricing) -->"
+  },
+  {
+    "file": "Dental city/src/views/doctor/dashboard.ejs",
+    "line": 1365,
+    "term": "الأسعار",
+    "text": "<!-- 3. تبويب الخدمات والأسعار (Services & Pricing) -->"
+  },
+  {
+    "file": "Dental city/src/views/doctor/dashboard.ejs",
+    "line": 2137,
+    "term": "الخدمات والأسعار",
+    "text": "الخدمات والأسعار</label>"
+  },
+  {
+    "file": "Dental city/src/views/doctor/dashboard.ejs",
+    "line": 2137,
+    "term": "الأسعار",
+    "text": "الخدمات والأسعار</label>"
+  },
+  {
+    "file": "Dental city/src/views/partials/sidebar.ejs",
+    "line": 86,
+    "term": "overview-panel",
+    "text": "<a href=\"/Doctor/Dashboard#overview\" class=\"sidebar-link\" data-dashboard-tab=\"overview-panel\""
+  },
+  {
+    "file": "Dental city/src/views/partials/sidebar.ejs",
+    "line": 94,
+    "term": "patients-panel",
+    "text": "<a href=\"/Doctor/Dashboard#patients\" class=\"sidebar-link\" data-dashboard-tab=\"patients-panel\""
+  },
+  {
+    "file": "Dental city/src/views/partials/sidebar.ejs",
+    "line": 116,
+    "term": "باقات الأسعار",
+    "text": "title=\"قائمة الخدمات وباقات الأسعار\" data-bs-toggle=\"tooltip\" data-bs-placement=\"left\">"
+  },
+  {
+    "file": "Dental city/src/views/partials/sidebar.ejs",
+    "line": 116,
+    "term": "الأسعار",
+    "text": "title=\"قائمة الخدمات وباقات الأسعار\" data-bs-toggle=\"tooltip\" data-bs-placement=\"left\">"
+  },
+  {
+    "file": "Dental city/src/views/partials/sidebar.ejs",
+    "line": 118,
+    "term": "الخدمات والأسعار",
+    "text": "<span class=\"nav-text\">الخدمات والأسعار</span>"
+  },
+  {
+    "file": "Dental city/src/views/partials/sidebar.ejs",
+    "line": 118,
+    "term": "الأسعار",
+    "text": "<span class=\"nav-text\">الخدمات والأسعار</span>"
+  },
+  {
+    "file": "public/js/sidebar.js",
+    "line": 106,
+    "term": "overview-panel",
+    "text": "targetTabId = 'overview-panel';"
+  },
+  {
+    "file": "public/js/sidebar.js",
+    "line": 110,
+    "term": "patients-panel",
+    "text": "targetTabId = 'patients-panel';"
+  }
+]

@@ -18,6 +18,19 @@ export interface Doctor {
   AvatarIcon: string;
   IsActive: boolean;
   WorkingDays: string;
+  morning_start?: string | null;
+  morning_end?: string | null;
+  evening_start?: string | null;
+  evening_end?: string | null;
+  active_days?: string | null;
+  created_at?: string;
+}
+
+export interface Staff {
+  id: number;
+  name: string;
+  role: string;
+  phone: string;
   created_at?: string;
 }
 
@@ -111,6 +124,16 @@ export interface SupabaseDoctorRow {
   AvatarIcon: string;
   IsActive: boolean;
   WorkingDays: string;
+  'morning start'?: string | null;
+  'morning end'?: string | null;
+  'evening start'?: string | null;
+  'evening end'?: string | null;
+  'active days'?: string | null;
+  morning_start?: string | null;
+  morning_end?: string | null;
+  evening_start?: string | null;
+  evening_end?: string | null;
+  active_days?: string | null;
   created_at?: string;
 }
 
